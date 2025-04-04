@@ -25,7 +25,7 @@
   "content_scripts": [
     {
       "matches": ["*://mail.google.com/*"],
-      "js": ["content/gmail-integration.js"],
+      "js": ["content/gmail-integration.js", "content/tracking-indicator.js"],
       "run_at": "document_idle"
     },
     {

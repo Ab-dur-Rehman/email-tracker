@@ -193,8 +193,8 @@ async function handleSendButtonClick(composeElement, trackingId) {
     
     // Create tracking session in background
     const response = await chrome.runtime.sendMessage({
-      type: 'CREATE_TRACKING_SESSION',
-      emailDetails
+      type: 'CREATE_TRACKING',
+      data: emailDetails
     });
     
     if (response && response.success) {
