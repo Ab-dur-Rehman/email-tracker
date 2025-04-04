@@ -8,7 +8,7 @@
 // Configuration is loaded from shared-config.js
 
 // State management
-import { trackingEnabled } from './shared-config.js';
+const { trackingEnabled } = require('./shared-config.js');
 
 /**
  * Initialize the tracking indicator

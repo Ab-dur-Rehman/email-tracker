@@ -1,1 +1,3 @@
-export let trackingEnabled = true;
+let trackingEnabled = true;
+
+module.exports = { trackingEnabled };
