@@ -8,13 +8,7 @@
  * - Communicate with the background service worker
  */
 
-// Configuration
-const CONFIG = {
-  COMPOSE_CONTAINER_SELECTOR: '.Am.Al.editable', // Gmail compose box selector
-  SEND_BUTTON_SELECTOR: '.T-I.J-J5-Ji.aoO.v7.T-I-atl.L3', // Gmail send button
-  TRACKING_ENABLED_KEY: 'trackingEnabled',
-  DEBUG: false
-};
+// Configuration is loaded from shared-config.js
 
 // State management
 let trackingEnabled = true;

@@ -5,13 +5,7 @@
  * and provides a toggle button directly in the compose window.
  */
 
-// Configuration
-const CONFIG = {
-  COMPOSE_CONTAINER_SELECTOR: '.Am.Al.editable', // Gmail compose box selector
-  COMPOSE_TOOLBAR_SELECTOR: '.btC', // Gmail compose toolbar
-  TRACKING_ENABLED_KEY: 'trackingEnabled',
-  DEBUG: false
-};
+// Configuration is loaded from shared-config.js
 
 // State management
 let trackingEnabled = true;
