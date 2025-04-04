@@ -3,6 +3,9 @@
   "name": "Email Tracker",
   "version": "1.0.0",
   "description": "Track email delivery and open status in real-time",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
   "permissions": [
     "storage",
     "tabs",
