@@ -246,7 +246,7 @@ function extractEmailDetails(composeElement) {
  */
 function insertTrackingPixel(composeElement, trackingId) {
   // Create the tracking pixel HTML
-  const pixelUrl = `https://api.emailtracker.com/pixel/${trackingId}`;
+  const pixelUrl = `https://email-tracker-virid.vercel.app/pixel/${trackingId}`;
   const pixelHtml = `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:none;">`;
   
   // Append the pixel to the email content
@@ -269,7 +269,7 @@ function processLinksForTracking(composeElement, trackingId) {
     
     // Create a tracked URL
     const linkId = `link_${index}`;
-    const trackedUrl = `https://api.emailtracker.com/link/${trackingId}/${linkId}?url=${encodeURIComponent(originalUrl)}`;
+    const trackedUrl = `https://email-tracker-virid.vercel.app/link/${trackingId}/${linkId}?url=${encodeURIComponent(originalUrl)}`;
     
     // Update the link
     link.href = trackedUrl;
