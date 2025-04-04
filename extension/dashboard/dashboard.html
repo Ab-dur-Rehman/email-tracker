@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Tracker Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="dashboard-container">
+    <header>
+      <h1>Email Tracker Dashboard</h1>
+      <div class="controls">
+        <div class="date-range">
+          <label for="date-range">Date Range:</label>
+          <select id="date-range">
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7days" selected>Last 7 Days</option>
+            <option value="30days">Last 30 Days</option>
+            <option value="custom">Custom Range</option>
+          </select>
+        </div>
+        <button id="refresh-btn" class="btn">Refresh Data</button>
+      </div>
+    </header>
+    
+    <div class="dashboard-grid">
+      <!-- Summary Cards -->
+      <div class="summary-cards">
+        <div class="card" id="sent-card">
+          <div class="card-value" id="sent-count">0</div>
+          <div class="card-label">Emails Sent</div>
+        </div>
+        <div class="card" id="opened-card">
+          <div class="card-value" id="opened-count">0</div>
+          <div class="card-label">Emails Opened</div>
+        </div>
+        <div class="card" id="clicked-card">
+          <div class="card-value" id="clicked-count">0</div>
+          <div class="card-label">Links Clicked</div>
+        </div>
+        <div class="card" id="open-rate-card">
+          <div class="card-value" id="open-rate">0%</div>
+          <div class="card-label">Open Rate</div>
+        </div>
+      </div>
+      
+      <!-- Charts -->
+      <div class="chart-container">
+        <h2>Activity Over Time</h2>
+        <canvas id="activity-chart"></canvas>
+      </div>
+      
+      <div class="chart-container">
+        <h2>Geographical Distribution</h2>
+        <canvas id="geo-chart"></canvas>
+      </div>
+      
+      <div class="chart-container">
+        <h2>Device Breakdown</h2>
+        <canvas id="device-chart"></canvas>
+      </div>
+      
+      <!-- Email Tracking Table -->
+      <div class="table-container">
+        <h2>Email Tracking Details</h2>
+        <div class="table-controls">
+          <input type="text" id="search-input" placeholder="Search emails...">
+          <select id="status-filter">
+            <option value="all">All Status</option>
+            <option value="sent">Sent</option>
+            <option value="opened">Opened</option>
+            <option value="clicked">Clicked</option>
+          </select>
+        </div>
+        <table id="tracking-table">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Recipients</th>
+              <th>Sent Date</th>
+              <th>Status</th>
+              <th>Opens</th>
+              <th>Clicks</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tracking-table-body">
+            <!-- Table rows will be inserted here dynamically -->
+          </tbody>
+        </table>
+        <div class="pagination">
+          <button id="prev-page" class="btn">Previous</button>
+          <span id="page-info">Page 1 of 1</span>
+          <button id="next-page" class="btn">Next</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Email Detail Modal -->
+    <div id="email-detail-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h2 id="modal-email-subject">Email Subject</h2>
+        
+        <div class="modal-section">
+          <h3>Overview</h3>
+          <div class="modal-overview">
+            <div class="modal-stat">
+              <div class="modal-stat-value" id="modal-sent-date">-</div>
+              <div class="modal-stat-label">Sent Date</div>
+            </div>
+            <div class="modal-stat">
+              <div class="modal-stat-value" id="modal-recipients">-</div>
+              <div class="modal-stat-label">Recipients</div>
+            </div>
+            <div class="modal-stat">
+              <div class="modal-stat-value" id="modal-open-count">0</div>
+              <div class="modal-stat-label">Opens</div>
+            </div>
+            <div class="modal-stat">
+              <div class="modal-stat-value" id="modal-click-count">0</div>
+              <div class="modal-stat-label">Clicks</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-section">
+          <h3>Open Events</h3>
+          <table class="modal-table">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Device</th>
+                <th>Location</th>
+                <th>Browser</th>
+              </tr>
+            </thead>
+            <tbody id="modal-opens-table">
+              <!-- Open events will be inserted here -->
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="modal-section">
+          <h3>Click Events</h3>
+          <table class="modal-table">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Link</th>
+                <th>Device</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody id="modal-clicks-table">
+              <!-- Click events will be inserted here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <footer>
+      <p>Email Tracker v1.0.0 | <a href="../options/options.html">Settings</a> | <a href="#" id="export-data">Export Data</a></p>
+    </footer>
+  </div>
+  
+  <script src="dashboard.js"></script>
+</body>
+</html>

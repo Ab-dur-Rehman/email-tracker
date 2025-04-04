@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Email Tracker",
+  "version": "1.0.0",
+  "description": "Track email delivery and open status in real-time",
+  "permissions": [
+    "storage",
+    "tabs",
+    "webNavigation",
+    "webRequest",
+    "geolocation"
+  ],
+  "host_permissions": [
+    "*://mail.google.com/*",
+    "*://outlook.live.com/*",
+    "*://outlook.office365.com/*",
+    "*://*.emailtracker.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://mail.google.com/*"],
+      "js": ["content/gmail-integration.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://outlook.live.com/*", "*://outlook.office365.com/*"],
+      "js": ["content/outlook-integration.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

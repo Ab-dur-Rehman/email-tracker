@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Tracker Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-container">
+    <header>
+      <h1>Email Tracker Settings</h1>
+      <p class="subtitle">Configure your email tracking preferences</p>
+    </header>
+    
+    <div class="options-section">
+      <h2>Tracking Settings</h2>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Enable Email Tracking</h3>
+          <p>Track when your emails are opened and links are clicked</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="tracking-enabled" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Automatic Tracking</h3>
+          <p>Automatically add tracking to all outgoing emails</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="auto-tracking" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Track Link Clicks</h3>
+          <p>Track when recipients click links in your emails</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="track-links" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <div class="options-section">
+      <h2>Notification Settings</h2>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Email Open Notifications</h3>
+          <p>Get notified when your emails are opened</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="open-notifications" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Link Click Notifications</h3>
+          <p>Get notified when links in your emails are clicked</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="click-notifications" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Notification Sound</h3>
+          <p>Play a sound when notifications are received</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="notification-sound">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <div class="options-section">
+      <h2>Privacy & Data</h2>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Collect Geolocation Data</h3>
+          <p>Track the approximate location where emails are opened</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="collect-geolocation" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Collect Device Information</h3>
+          <p>Track the device and browser used to open emails</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="collect-device-info" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Data Retention Period</h3>
+          <p>How long to keep tracking data before automatic deletion</p>
+        </div>
+        <div class="option-control select-control">
+          <select id="data-retention">
+            <option value="30">30 days</option>
+            <option value="90" selected>90 days</option>
+            <option value="180">180 days</option>
+            <option value="365">1 year</option>
+            <option value="0">Forever</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Data Synchronization</h3>
+          <p>Sync tracking data with the cloud server</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="sync-data" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <div class="options-section">
+      <h2>GDPR Compliance</h2>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Privacy Disclosure</h3>
+          <p>Automatically add a privacy disclosure to tracked emails</p>
+        </div>
+        <div class="option-control">
+          <label class="switch">
+            <input type="checkbox" id="privacy-disclosure" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="option-item full-width">
+        <div class="option-info">
+          <h3>Privacy Disclosure Text</h3>
+          <p>Customize the privacy disclosure text added to emails</p>
+        </div>
+        <div class="option-control textarea-control">
+          <textarea id="disclosure-text">This email is being tracked to notify the sender when it is opened. This tracking collects information such as the time of opening and device information. If you have concerns about this tracking, please contact the sender directly.</textarea>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Export All Data</h3>
+          <p>Download all your tracking data as a JSON file</p>
+        </div>
+        <div class="option-control button-control">
+          <button id="export-data-btn" class="btn primary">Export Data</button>
+        </div>
+      </div>
+      
+      <div class="option-item">
+        <div class="option-info">
+          <h3>Delete All Data</h3>
+          <p>Permanently delete all tracking data</p>
+        </div>
+        <div class="option-control button-control">
+          <button id="delete-data-btn" class="btn danger">Delete Data</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="options-actions">
+      <button id="save-btn" class="btn primary">Save Settings</button>
+      <button id="reset-btn" class="btn secondary">Reset to Defaults</button>
+    </div>
+    
+    <div id="save-status" class="save-status"></div>
+    
+    <footer>
+      <p>Email Tracker v1.0.0 | <a href="../dashboard/dashboard.html">Dashboard</a> | <a href="#" id="privacy-policy">Privacy Policy</a></p>
+    </footer>
+  </div>
+  
+  <script src="options.js"></script>
+</body>
+</html>
