@@ -8,10 +8,14 @@
  * - Communicate with the background service worker
  */
 
-// Configuration is loaded from shared-config.js
+// Configuration
+const GMAIL_CONFIG = {
+  COMPOSE_CONTAINER_SELECTOR: 'div[role="textbox"][aria-label="Message Body"]', // Gmail compose box
+  SEND_BUTTON_SELECTOR: 'div[role="button"][data-tooltip="Send"]' // Gmail send button
+};
 
 // State management
-const { trackingEnabled } = require('./shared-config.js');
+let trackingEnabled = window.CONFIG.trackingEnabled; // Use the global CONFIG
 let composeObserver = null;
 let activeComposeElements = new Map(); // Maps compose elements to their tracking IDs
 
@@ -39,9 +43,9 @@ async function initialize() {
  */
 async function loadTrackingSettings() {
   try {
-    const settings = await chrome.storage.sync.get(CONFIG.TRACKING_ENABLED_KEY);
-    trackingEnabled = settings[CONFIG.TRACKING_ENABLED_KEY] !== undefined 
-      ? settings[CONFIG.TRACKING_ENABLED_KEY] 
+    const settings = await chrome.storage.sync.get(window.CONFIG.TRACKING_ENABLED_KEY);
+    trackingEnabled = settings[window.CONFIG.TRACKING_ENABLED_KEY] !== undefined 
+      ? settings[window.CONFIG.TRACKING_ENABLED_KEY] 
       : true;
     
     debug('Tracking enabled:', trackingEnabled);
@@ -54,8 +58,8 @@ async function loadTrackingSettings() {
  * Handle storage changes
  */
 function handleStorageChanges(changes, area) {
-  if (area === 'sync' && changes[CONFIG.TRACKING_ENABLED_KEY]) {
-    trackingEnabled = changes[CONFIG.TRACKING_ENABLED_KEY].newValue;
+  if (area === 'sync' && changes[window.CONFIG.TRACKING_ENABLED_KEY]) {
+    trackingEnabled = changes[window.CONFIG.TRACKING_ENABLED_KEY].newValue;
     debug('Tracking setting changed:', trackingEnabled);
   }
 }
@@ -102,7 +106,7 @@ function startComposeObserver() {
             }
             
             // Also check if the node itself is a compose element
-            if (node.matches && node.matches(CONFIG.COMPOSE_CONTAINER_SELECTOR)) {
+            if (node.matches && node.matches(GMAIL_CONFIG.COMPOSE_CONTAINER_SELECTOR)) {
               handleNewComposeElement(node);
             }
           }
@@ -118,7 +122,7 @@ function startComposeObserver() {
   });
   
   // Also check for any existing compose windows
-  const existingComposeElements = document.querySelectorAll(CONFIG.COMPOSE_CONTAINER_SELECTOR);
+  const existingComposeElements = document.querySelectorAll(GMAIL_CONFIG.COMPOSE_CONTAINER_SELECTOR);
   for (const composeElement of existingComposeElements) {
     handleNewComposeElement(composeElement);
   }
@@ -143,7 +147,7 @@ function handleNewComposeElement(composeElement) {
   }
   
   // Find the send button
-  const sendButton = composeForm.querySelector(CONFIG.SEND_BUTTON_SELECTOR);
+  const sendButton = composeForm.querySelector(GMAIL_CONFIG.SEND_BUTTON_SELECTOR);
   if (!sendButton) {
     debug('Could not find send button');
     return;
@@ -283,7 +287,7 @@ function generateSessionId() {
  * Debug logging function
  */
 function debug(...args) {
-  if (CONFIG.DEBUG) {
+  if (window.CONFIG.DEBUG) {
     console.log('Email Tracker (Gmail):', ...args);
   }
 }

@@ -8,7 +8,7 @@
 // Configuration is loaded from shared-config.js
 
 // State management
-const { trackingEnabled } = require('./shared-config.js');
+let trackingEnabled = window.CONFIG.trackingEnabled; // Use the global CONFIG
 
 /**
  * Initialize the tracking indicator
@@ -31,9 +31,9 @@ async function initialize() {
  */
 async function loadTrackingSettings() {
   try {
-    const settings = await chrome.storage.sync.get(CONFIG.TRACKING_ENABLED_KEY);
-    trackingEnabled = settings[CONFIG.TRACKING_ENABLED_KEY] !== undefined 
-      ? settings[CONFIG.TRACKING_ENABLED_KEY] 
+    const settings = await chrome.storage.sync.get(window.CONFIG.TRACKING_ENABLED_KEY);
+    trackingEnabled = settings[window.CONFIG.TRACKING_ENABLED_KEY] !== undefined 
+      ? settings[window.CONFIG.TRACKING_ENABLED_KEY] 
       : true;
     
     debug('Tracking enabled:', trackingEnabled);
@@ -46,8 +46,8 @@ async function loadTrackingSettings() {
  * Handle storage changes
  */
 function handleStorageChanges(changes, area) {
-  if (area === 'sync' && changes[CONFIG.TRACKING_ENABLED_KEY]) {
-    trackingEnabled = changes[CONFIG.TRACKING_ENABLED_KEY].newValue;
+  if (area === 'sync' && changes[window.CONFIG.TRACKING_ENABLED_KEY]) {
+    trackingEnabled = changes[window.CONFIG.TRACKING_ENABLED_KEY].newValue;
     debug('Tracking setting changed:', trackingEnabled);
     
     // Update all existing indicators
@@ -183,7 +183,7 @@ async function toggleTracking(indicatorContainer) {
   trackingEnabled = !trackingEnabled;
   
   // Save to storage
-  await chrome.storage.sync.set({ [CONFIG.TRACKING_ENABLED_KEY]: trackingEnabled });
+  await chrome.storage.sync.set({ [window.CONFIG.TRACKING_ENABLED_KEY]: trackingEnabled });
   
   // Update indicator
   updateIndicatorState(indicatorContainer);
@@ -195,7 +195,7 @@ async function toggleTracking(indicatorContainer) {
  * Debug logging function
  */
 function debug(...args) {
-  if (CONFIG.DEBUG) {
+  if (window.CONFIG.DEBUG) {
     console.log('Email Tracker (Indicator):', ...args);
   }
 }

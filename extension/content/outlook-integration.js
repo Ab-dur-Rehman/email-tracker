@@ -9,15 +9,13 @@
  */
 
 // Configuration
-const CONFIG = {
+const OUTLOOK_CONFIG = {
   COMPOSE_CONTAINER_SELECTOR: 'div[contenteditable="true"][aria-label="Message body"]', // Outlook compose box
-  SEND_BUTTON_SELECTOR: 'button[aria-label="Send"]', // Outlook send button
-  TRACKING_ENABLED_KEY: 'trackingEnabled',
-  DEBUG: false
+  SEND_BUTTON_SELECTOR: 'button[aria-label="Send"]' // Outlook send button
 };
 
 // State management
-const { trackingEnabled } = require('./shared-config.js');
+let trackingEnabled = window.CONFIG.trackingEnabled; // Use the global CONFIG
 let composeObserver = null;
 let activeComposeElements = new Map(); // Maps compose elements to their tracking IDs
 
@@ -45,9 +43,9 @@ async function initialize() {
  */
 async function loadTrackingSettings() {
   try {
-    const settings = await chrome.storage.sync.get(CONFIG.TRACKING_ENABLED_KEY);
-    trackingEnabled = settings[CONFIG.TRACKING_ENABLED_KEY] !== undefined 
-      ? settings[CONFIG.TRACKING_ENABLED_KEY] 
+    const settings = await chrome.storage.sync.get(window.CONFIG.TRACKING_ENABLED_KEY);
+    trackingEnabled = settings[window.CONFIG.TRACKING_ENABLED_KEY] !== undefined 
+      ? settings[window.CONFIG.TRACKING_ENABLED_KEY] 
       : true;
     
     debug('Tracking enabled:', trackingEnabled);
@@ -60,8 +58,8 @@ async function loadTrackingSettings() {
  * Handle storage changes
  */
 function handleStorageChanges(changes, area) {
-  if (area === 'sync' && changes[CONFIG.TRACKING_ENABLED_KEY]) {
-    trackingEnabled = changes[CONFIG.TRACKING_ENABLED_KEY].newValue;
+  if (area === 'sync' && changes[window.CONFIG.TRACKING_ENABLED_KEY]) {
+    trackingEnabled = changes[window.CONFIG.TRACKING_ENABLED_KEY].newValue;
     debug('Tracking setting changed:', trackingEnabled);
   }
 }
@@ -266,7 +264,7 @@ function generateSessionId() {
  * Debug logging function
  */
 function debug(...args) {
-  if (CONFIG.DEBUG) {
+  if (window.CONFIG.DEBUG) {
     console.log('Email Tracker (Outlook):', ...args);
   }
 }
