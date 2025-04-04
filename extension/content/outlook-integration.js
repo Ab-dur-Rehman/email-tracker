@@ -17,7 +17,7 @@ const CONFIG = {
 };
 
 // State management
-let trackingEnabled = true;
+import { trackingEnabled } from './shared-config.js';
 let composeObserver = null;
 let activeComposeElements = new Map(); // Maps compose elements to their tracking IDs
 

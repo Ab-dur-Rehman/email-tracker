@@ -8,7 +8,7 @@
 // Configuration is loaded from shared-config.js
 
 // State management
-let trackingEnabled = true;
+import { trackingEnabled } from './shared-config.js';
 
 /**
  * Initialize the tracking indicator
