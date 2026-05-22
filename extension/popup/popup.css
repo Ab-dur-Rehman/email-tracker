@@ -54,6 +54,17 @@ h2 {
   color: var(--dark-color);
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.section-header h2 {
+  margin-bottom: 0;
+}
+
 /* Toggle Switch */
 .toggle-container {
   display: flex;
@@ -163,6 +174,51 @@ input:checked + .slider:before {
   margin-bottom: 20px;
 }
 
+.account-section {
+  margin-bottom: 20px;
+}
+
+.account-list {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.account-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--light-color);
+  flex: 0 0 auto;
+}
+
+.account-details {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-name,
+.account-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-name {
+  font-weight: 600;
+}
+
+.account-email {
+  color: var(--secondary-color);
+  font-size: 11px;
+}
+
 .activity-list {
   max-height: 180px;
   overflow-y: auto;
@@ -208,6 +264,10 @@ input:checked + .slider:before {
   font-style: italic;
 }
 
+.empty-state.compact {
+  padding: 8px;
+}
+
 /* Buttons */
 .actions {
   display: flex;
@@ -221,6 +281,11 @@ input:checked + .slider:before {
   cursor: pointer;
   font-weight: 500;
   transition: background-color 0.3s;
+}
+
+.btn.compact {
+  padding: 5px 10px;
+  font-size: 12px;
 }
 
 .btn.primary {

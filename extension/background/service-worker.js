@@ -10,10 +10,11 @@
 
 // Track active email tracking sessions
 let activeTrackingSessions = {};
+let connectedGmailAccounts = [];
 
 // Configuration for the tracking server
 const CONFIG = {
-  API_ENDPOINT: 'https://email-tracker-virid.vercel.app/',
+  API_ENDPOINT: 'https://email-tracker-virid.vercel.app',
   TRACKING_PIXEL_PATH: '/pixel',
   LINK_TRACKING_PATH: '/link',
   SYNC_INTERVAL: 5 * 60 * 1000, // 5 minutes
@@ -27,6 +28,7 @@ function initialize() {
   
   // Load stored tracking data from browser storage
   loadStoredTrackingData();
+  loadConnectedAccounts();
   
   // Set up periodic sync with server
   setInterval(syncWithServer, CONFIG.SYNC_INTERVAL);
@@ -44,6 +46,30 @@ async function loadStoredTrackingData() {
     }
   } catch (error) {
     console.error('Error loading tracking data:', error);
+  }
+}
+
+/**
+ * Load Gmail accounts connected through Chrome Identity.
+ */
+async function loadConnectedAccounts() {
+  try {
+    const data = await chrome.storage.sync.get('gmailAccounts');
+    connectedGmailAccounts = Array.isArray(data.gmailAccounts) ? data.gmailAccounts : [];
+    console.log('Loaded Gmail accounts', connectedGmailAccounts.length);
+  } catch (error) {
+    console.error('Error loading Gmail accounts:', error);
+  }
+}
+
+/**
+ * Save connected Gmail account metadata. OAuth tokens remain in Chrome's token cache.
+ */
+async function saveConnectedAccounts() {
+  try {
+    await chrome.storage.sync.set({ gmailAccounts: connectedGmailAccounts });
+  } catch (error) {
+    console.error('Error saving Gmail accounts:', error);
   }
 }
 
@@ -93,6 +119,80 @@ async function syncWithServer() {
 }
 
 /**
+ * Connect the primary signed-in Google account for Gmail tracking.
+ */
+async function connectGmailAccount() {
+  const tokenResult = await chrome.identity.getAuthToken({
+    interactive: true,
+    scopes: [
+      'openid',
+      'email',
+      'profile',
+      'https://www.googleapis.com/auth/userinfo.email'
+    ]
+  });
+  const token = typeof tokenResult === 'string' ? tokenResult : tokenResult.token;
+
+  if (!token) {
+    throw new Error('Chrome Identity did not return an OAuth token.');
+  }
+
+  let account = null;
+  try {
+    const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (response.ok) {
+      const profile = await response.json();
+      account = {
+        id: profile.sub || profile.email,
+        email: profile.email,
+        name: profile.name || profile.email,
+        picture: profile.picture || '',
+        connectedAt: Date.now()
+      };
+    }
+  } catch (error) {
+    console.warn('Could not fetch Google userinfo, falling back to Chrome profile info:', error);
+  }
+
+  if (!account) {
+    const profile = await chrome.identity.getProfileUserInfo({ accountStatus: 'ANY' });
+    account = {
+      id: profile.id || profile.email,
+      email: profile.email,
+      name: profile.email,
+      picture: '',
+      connectedAt: Date.now()
+    };
+  }
+
+  if (!account.email) {
+    throw new Error('No Google account email was available. Sign in to Chrome and try again.');
+  }
+
+  connectedGmailAccounts = [
+    account,
+    ...connectedGmailAccounts.filter(existing => existing.email !== account.email)
+  ];
+  await saveConnectedAccounts();
+
+  return account;
+}
+
+/**
+ * Disconnect a Gmail account from extension state.
+ */
+async function disconnectGmailAccount(email) {
+  connectedGmailAccounts = connectedGmailAccounts.filter(account => account.email !== email);
+  await saveConnectedAccounts();
+  return connectedGmailAccounts;
+}
+
+/**
  * Generate a new tracking UUID
  */
 function generateTrackingId() {
@@ -113,6 +213,7 @@ function createTrackingSession(emailDetails) {
     id: trackingId,
     emailSubject: emailDetails.subject,
     recipients: emailDetails.recipients,
+    senderAccount: emailDetails.senderAccount || null,
     sentTimestamp: Date.now(),
     pixelLoads: [],
     linkClicks: [],
@@ -217,8 +318,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Background received message:', message.type);
   
   switch (message.type) {
+    case 'CONNECT_GMAIL_ACCOUNT':
+      connectGmailAccount()
+        .then(account => sendResponse({ success: true, account }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+
+    case 'DISCONNECT_GMAIL_ACCOUNT':
+      disconnectGmailAccount(message.email)
+        .then(accounts => sendResponse({ success: true, accounts }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+
+    case 'GET_GMAIL_ACCOUNTS':
+      sendResponse({ success: true, accounts: connectedGmailAccounts });
+      break;
+
+    case 'SET_TRACKING_ENABLED':
+      chrome.storage.sync.set({ trackingEnabled: Boolean(message.enabled) })
+        .then(() => sendResponse({ success: true }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+
+    case 'CLEAR_TRACKING_DATA':
+      activeTrackingSessions = {};
+      saveTrackingData()
+        .then(() => sendResponse({ success: true }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+
     case 'CREATE_TRACKING':
-      const trackingId = createTrackingSession(message.data);
+    case 'CREATE_TRACKING_SESSION':
+      const trackingId = createTrackingSession(message.data || message.emailDetails || {});
       sendResponse({ success: true, trackingId });
       break;
       

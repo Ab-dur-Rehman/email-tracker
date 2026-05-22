@@ -18,9 +18,13 @@ const activityList = document.getElementById('activity-list');
 const emptyState = document.getElementById('empty-state');
 const clearDataBtn = document.getElementById('clear-data-btn');
 const viewDashboardBtn = document.getElementById('view-dashboard-btn');
+const connectGmailBtn = document.getElementById('connect-gmail-btn');
+const gmailAccountList = document.getElementById('gmail-account-list');
+const gmailEmptyState = document.getElementById('gmail-empty-state');
 
 // Tracking data
 let trackingData = {};
+let gmailAccounts = [];
 
 /**
  * Initialize the popup
@@ -36,13 +40,80 @@ async function initialize() {
   
   // Load tracking data
   await loadTrackingData();
+  await loadGmailAccounts();
   
   // Update UI
   updateStatistics();
+  updateGmailAccounts();
   updateActivityList();
   
   // Set up event listeners
   setupEventListeners();
+}
+
+/**
+ * Load connected Gmail accounts from the background service worker.
+ */
+async function loadGmailAccounts() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      { type: 'GET_GMAIL_ACCOUNTS' },
+      (response) => {
+        gmailAccounts = response && response.success ? response.accounts || [] : [];
+        resolve();
+      }
+    );
+  });
+}
+
+/**
+ * Update connected Gmail account display.
+ */
+function updateGmailAccounts() {
+  const existingItems = gmailAccountList.querySelectorAll('.account-item');
+  existingItems.forEach(item => item.remove());
+
+  if (gmailAccounts.length === 0) {
+    gmailEmptyState.style.display = 'block';
+    connectGmailBtn.textContent = 'Connect';
+    return;
+  }
+
+  gmailEmptyState.style.display = 'none';
+  connectGmailBtn.textContent = 'Add';
+
+  gmailAccounts.forEach(account => {
+    const item = document.createElement('div');
+    item.className = 'account-item';
+
+    const avatar = document.createElement('img');
+    avatar.className = 'account-avatar';
+    avatar.alt = '';
+    avatar.src = account.picture || '../assets/icon48.png';
+
+    const details = document.createElement('div');
+    details.className = 'account-details';
+
+    const name = document.createElement('div');
+    name.className = 'account-name';
+    name.textContent = account.name || account.email;
+
+    const email = document.createElement('div');
+    email.className = 'account-email';
+    email.textContent = account.email;
+
+    const disconnect = document.createElement('button');
+    disconnect.className = 'btn compact secondary';
+    disconnect.textContent = 'Remove';
+    disconnect.addEventListener('click', () => disconnectGmailAccount(account.email));
+
+    details.appendChild(name);
+    details.appendChild(email);
+    item.appendChild(avatar);
+    item.appendChild(details);
+    item.appendChild(disconnect);
+    gmailAccountList.appendChild(item);
+  });
 }
 
 /**
@@ -329,6 +400,22 @@ function setupEventListeners() {
       enabled: enabled
     });
   });
+
+  connectGmailBtn.addEventListener('click', async () => {
+    connectGmailBtn.disabled = true;
+    connectGmailBtn.textContent = 'Connecting...';
+
+    chrome.runtime.sendMessage({ type: 'CONNECT_GMAIL_ACCOUNT' }, async (response) => {
+      connectGmailBtn.disabled = false;
+
+      if (!response || !response.success) {
+        alert(response?.error || 'Could not connect Gmail account.');
+      }
+
+      await loadGmailAccounts();
+      updateGmailAccounts();
+    });
+  });
   
   // Clear data button
   clearDataBtn.addEventListener('click', async () => {
@@ -352,6 +439,17 @@ function setupEventListeners() {
   viewDashboardBtn.addEventListener('click', () => {
     // Open dashboard in new tab
     chrome.tabs.create({ url: '../dashboard/dashboard.html' });
+  });
+}
+
+async function disconnectGmailAccount(email) {
+  chrome.runtime.sendMessage({ type: 'DISCONNECT_GMAIL_ACCOUNT', email }, async (response) => {
+    if (!response || !response.success) {
+      alert(response?.error || 'Could not remove Gmail account.');
+    }
+
+    await loadGmailAccounts();
+    updateGmailAccounts();
   });
 }
 

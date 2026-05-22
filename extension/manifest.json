@@ -7,18 +7,29 @@
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "permissions": [
+    "identity",
+    "identity.email",
+    "notifications",
     "storage",
     "tabs",
-    "webNavigation",
-    "webRequest",
-    "geolocation"
+    "webNavigation"
   ],
   "host_permissions": [
     "*://mail.google.com/*",
     "*://outlook.live.com/*",
     "*://outlook.office365.com/*",
-    "*://*.emailtracker.com/*"
+    "https://email-tracker-virid.vercel.app/*",
+    "https://www.googleapis.com/*"
   ],
+  "oauth2": {
+    "client_id": "REPLACE_WITH_CHROME_EXTENSION_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
+  },
   "background": {
     "service_worker": "background/service-worker.js"
   },
@@ -30,7 +41,7 @@
     },
     {
       "matches": ["*://outlook.live.com/*", "*://outlook.office365.com/*"],
-      "js": ["content/outlook-integration.js"],
+      "js": ["content/shared-config.js", "content/outlook-integration.js"],
       "run_at": "document_idle"
     }
   ],

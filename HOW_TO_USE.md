@@ -10,7 +10,11 @@ The Email Tracker extension automatically integrates with Gmail. Here's how to u
 
 2. **Visit Gmail**: Go to [Gmail](https://mail.google.com) in your browser.
 
-3. **Automatic Integration**: The extension automatically integrates with Gmail - no manual setup required.
+3. **Connect Gmail**: Click the Email Tracker toolbar icon, then click **Connect** under Gmail Account. This uses Chrome's Google sign-in flow.
+
+4. **Automatic Integration**: After connection, the extension automatically integrates with Gmail.
+
+> Developer note: before Gmail connection works, replace the placeholder `oauth2.client_id` in `extension/manifest.json` with a Google Cloud OAuth client ID for this Chrome extension.
 
 ### Composing Tracked Emails
 
@@ -60,3 +64,7 @@ Key settings include:
 - **Automatic Tracking**: Add tracking to all outgoing emails automatically
 - **Track Link Clicks**: Enable/disable tracking of link clicks in emails
 - **Notification Settings**: Configure how you're notified of email opens and link clicks
+
+## Production Caveats
+
+Email open tracking is based on a remote image loading. It can be blocked by mail clients, inflated by security scanners, or proxied by providers like Gmail and Apple Mail. Treat opens as a signal, not a guaranteed human read receipt.
