@@ -23,6 +23,7 @@ let composeObserver = null;
 let activeComposeElements = new Map(); // Maps compose elements to their tracking IDs
 let preparingComposeElements = new WeakMap();
 let composeScanInterval = null;
+const allowedProgrammaticSends = new WeakSet();
 
 /**
  * Initialize the Gmail integration
@@ -145,11 +146,6 @@ function scanComposeWindows() {
   for (const composeElement of existingComposeElements) {
     handleNewComposeElement(composeElement);
   }
-
-  const sendButtons = document.querySelectorAll(GMAIL_CONFIG.SEND_BUTTON_SELECTOR);
-  for (const sendButton of sendButtons) {
-    attachSendButtonListener(sendButton);
-  }
 }
 
 /**
@@ -170,16 +166,6 @@ function handleNewComposeElement(composeElement) {
   debug('Compose element setup complete with tracking ID:', trackingId);
 }
 
-function attachSendButtonListener(sendButton) {
-  if (sendButton.dataset.emailTrackerListener === 'true') {
-    return;
-  }
-
-  sendButton.dataset.emailTrackerListener = 'true';
-  sendButton.addEventListener('click', handleDocumentSendClick, true);
-  debug('Attached send button listener');
-}
-
 /**
  * Handle delegated Gmail send button clicks.
  */
@@ -189,8 +175,8 @@ async function handleDocumentSendClick(event) {
     return;
   }
 
-  if (sendButton.dataset.emailTrackerSending === 'true') {
-    delete sendButton.dataset.emailTrackerSending;
+  if (!event.isTrusted || allowedProgrammaticSends.has(sendButton)) {
+    allowedProgrammaticSends.delete(sendButton);
     return;
   }
 
@@ -207,7 +193,7 @@ async function handleDocumentSendClick(event) {
   try {
     await prepareComposeForTracking(composeElement);
   } finally {
-    sendButton.dataset.emailTrackerSending = 'true';
+    allowedProgrammaticSends.add(sendButton);
     sendButton.click();
   }
 }
