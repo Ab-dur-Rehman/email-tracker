@@ -11,14 +11,16 @@
 (() => {
 // Configuration
 const GMAIL_CONFIG = {
-  COMPOSE_CONTAINER_SELECTOR: 'div[role="textbox"][aria-label="Message Body"]', // Gmail compose box
-  SEND_BUTTON_SELECTOR: 'div[role="button"][data-tooltip="Send"]' // Gmail send button
+  COMPOSE_CONTAINER_SELECTOR: 'div[role="textbox"][aria-label="Message Body"], div[role="textbox"][contenteditable="true"][aria-label*="Message Body"]',
+  COMPOSE_ROOT_SELECTOR: 'div[role="dialog"], table[role="presentation"]',
+  SEND_BUTTON_SELECTOR: 'div[role="button"][data-tooltip^="Send"], div[role="button"][aria-label^="Send"]'
 };
 
 // State management
 let trackingEnabled = window.CONFIG.trackingEnabled; // Use the global CONFIG
 let composeObserver = null;
 let activeComposeElements = new Map(); // Maps compose elements to their tracking IDs
+let preparingComposeElements = new WeakMap();
 
 /**
  * Initialize the Gmail integration
@@ -37,6 +39,10 @@ async function initialize() {
   
   // Start observing for compose windows
   startComposeObserver();
+
+  // Gmail's compose markup changes often. Delegated handling is more reliable
+  // than binding directly to a button inside a specific compose form.
+  document.addEventListener('click', handleDocumentSendClick, true);
 }
 
 /**
@@ -140,53 +146,71 @@ function handleNewComposeElement(composeElement) {
   
   debug('New compose element detected');
   
-  // Find the closest form that contains the send button
-  const composeForm = findComposeForm(composeElement);
-  if (!composeForm) {
-    debug('Could not find compose form');
-    return;
-  }
-  
-  // Find the send button
-  const sendButton = composeForm.querySelector(GMAIL_CONFIG.SEND_BUTTON_SELECTOR);
-  if (!sendButton) {
-    debug('Could not find send button');
-    return;
-  }
-  
   // Generate a tracking ID for this compose session
   const trackingId = generateSessionId();
   activeComposeElements.set(composeElement, trackingId);
-  
-  // Add click listener to the send button
-  sendButton.addEventListener('click', () => handleSendButtonClick(composeElement, trackingId));
-  
+
   debug('Compose element setup complete with tracking ID:', trackingId);
 }
 
 /**
- * Find the compose form that contains the given compose element
+ * Handle delegated Gmail send button clicks.
  */
-function findComposeForm(composeElement) {
-  // In Gmail, we need to traverse up to find the form
-  let element = composeElement;
-  while (element && element.tagName !== 'FORM' && element !== document.body) {
-    element = element.parentElement;
+async function handleDocumentSendClick(event) {
+  const sendButton = event.target.closest?.(GMAIL_CONFIG.SEND_BUTTON_SELECTOR);
+  if (!sendButton) {
+    return;
   }
-  
-  return element && element.tagName === 'FORM' ? element : null;
+
+  if (sendButton.dataset.emailTrackerSending === 'true') {
+    delete sendButton.dataset.emailTrackerSending;
+    return;
+  }
+
+  const composeElement = findComposeElementForSendButton(sendButton);
+  if (!composeElement) {
+    debug('Could not find compose body for send button');
+    return;
+  }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  try {
+    await prepareComposeForTracking(composeElement);
+  } finally {
+    sendButton.dataset.emailTrackerSending = 'true';
+    sendButton.click();
+  }
 }
 
 /**
- * Handle send button click
+ * Find the compose body associated with a send button.
  */
-async function handleSendButtonClick(composeElement, trackingId) {
+function findComposeElementForSendButton(sendButton) {
+  const composeRoot = sendButton.closest(GMAIL_CONFIG.COMPOSE_ROOT_SELECTOR) || document;
+  return composeRoot.querySelector(GMAIL_CONFIG.COMPOSE_CONTAINER_SELECTOR);
+}
+
+/**
+ * Prepare a compose window before Gmail sends it.
+ */
+async function prepareComposeForTracking(composeElement) {
   if (!trackingEnabled) {
     debug('Tracking disabled, not adding tracking pixel');
     return;
   }
+
+  if (composeElement.dataset.emailTrackerPrepared === 'true') {
+    debug('Compose already prepared for tracking');
+    return;
+  }
+
+  if (preparingComposeElements.has(composeElement)) {
+    return preparingComposeElements.get(composeElement);
+  }
   
-  try {
+  const preparation = (async () => {
     // Get email details
     const emailDetails = extractEmailDetails(composeElement);
     
@@ -204,13 +228,24 @@ async function handleSendButtonClick(composeElement, trackingId) {
       
       // Process links for click tracking
       processLinksForTracking(composeElement, serverTrackingId);
+
+      composeElement.dataset.emailTrackerPrepared = 'true';
+      composeElement.dataset.emailTrackerId = serverTrackingId;
       
       debug('Email prepared for tracking with ID:', serverTrackingId);
     } else {
       console.error('Failed to create tracking session:', response?.error || 'Unknown error');
     }
+  })();
+
+  preparingComposeElements.set(composeElement, preparation);
+
+  try {
+    await preparation;
   } catch (error) {
     console.error('Error preparing email for tracking:', error);
+  } finally {
+    preparingComposeElements.delete(composeElement);
   }
 }
 
@@ -218,20 +253,15 @@ async function handleSendButtonClick(composeElement, trackingId) {
  * Extract email details from compose element
  */
 function extractEmailDetails(composeElement) {
-  // In a real implementation, we would extract recipients, subject, etc.
-  // This is a simplified version
-  
-  // Find the subject input (this is a simplified approach)
-  const subjectInput = document.querySelector('input[name="subjectbox"]');
+  const composeRoot = composeElement.closest(GMAIL_CONFIG.COMPOSE_ROOT_SELECTOR) || document;
+  const subjectInput = composeRoot.querySelector('input[name="subjectbox"]');
   const subject = subjectInput ? subjectInput.value : 'No Subject';
   
-  // For recipients, we would need to find the recipient fields
-  // This is simplified and would need to be expanded in a real implementation
-  const recipientElements = document.querySelectorAll('div[role="option"][data-hovercard-id]');
+  const recipientElements = composeRoot.querySelectorAll('div[role="option"][data-hovercard-id], span[email], div[email]');
   const recipients = Array.from(recipientElements).map(el => {
-    const email = el.getAttribute('data-hovercard-id');
+    const email = el.getAttribute('data-hovercard-id') || el.getAttribute('email');
     return email || el.textContent.trim();
-  });
+  }).filter(Boolean);
   
   return {
     subject,
