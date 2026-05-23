@@ -8,6 +8,7 @@
  * - Communicate with the background service worker
  */
 
+(() => {
 // Configuration
 const GMAIL_CONFIG = {
   COMPOSE_CONTAINER_SELECTOR: 'div[role="textbox"][aria-label="Message Body"]', // Gmail compose box
@@ -98,7 +99,7 @@ function startComposeObserver() {
         for (const node of mutation.addedNodes) {
           if (node.nodeType === Node.ELEMENT_NODE) {
             // Check for compose elements
-            const composeElements = node.querySelectorAll(CONFIG.COMPOSE_CONTAINER_SELECTOR);
+            const composeElements = node.querySelectorAll(GMAIL_CONFIG.COMPOSE_CONTAINER_SELECTOR);
             if (composeElements.length > 0) {
               for (const composeElement of composeElements) {
                 handleNewComposeElement(composeElement);
@@ -298,3 +299,4 @@ if (document.readyState === 'loading') {
 } else {
   initialize();
 }
+})();

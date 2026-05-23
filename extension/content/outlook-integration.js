@@ -8,6 +8,7 @@
  * - Communicate with the background service worker
  */
 
+(() => {
 // Configuration
 const OUTLOOK_CONFIG = {
   COMPOSE_CONTAINER_SELECTOR: 'div[contenteditable="true"][aria-label="Message body"]', // Outlook compose box
@@ -110,7 +111,7 @@ function startComposeObserver() {
  * Check for compose elements in the current page
  */
 function checkForComposeElements() {
-  const composeElements = document.querySelectorAll(CONFIG.COMPOSE_CONTAINER_SELECTOR);
+  const composeElements = document.querySelectorAll(OUTLOOK_CONFIG.COMPOSE_CONTAINER_SELECTOR);
   
   for (const composeElement of composeElements) {
     if (!activeComposeElements.has(composeElement)) {
@@ -153,7 +154,7 @@ function handleNewComposeElement(composeElement) {
  * Find the send button in the Outlook interface
  */
 function findSendButton() {
-  return document.querySelector(CONFIG.SEND_BUTTON_SELECTOR);
+  return document.querySelector(OUTLOOK_CONFIG.SEND_BUTTON_SELECTOR);
 }
 
 /**
@@ -275,3 +276,4 @@ if (document.readyState === 'loading') {
 } else {
   initialize();
 }
+})();

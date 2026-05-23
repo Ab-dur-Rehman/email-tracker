@@ -22,7 +22,7 @@
     "https://www.googleapis.com/*"
   ],
   "oauth2": {
-    "client_id": "REPLACE_WITH_CHROME_EXTENSION_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "client_id": "25944012302-jdikil2ve06087pejqp1ppgprikugqon.apps.googleusercontent.com",
     "scopes": [
       "openid",
       "email",

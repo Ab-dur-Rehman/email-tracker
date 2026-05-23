@@ -5,10 +5,11 @@
  * and provides a toggle button directly in the compose window.
  */
 
+(() => {
 // Configuration is loaded from shared-config.js
 
 // State management
-let trackingEnabled = window.CONFIG.trackingEnabled; // Use the global CONFIG
+let indicatorTrackingEnabled = window.CONFIG.trackingEnabled; // Use the global CONFIG
 
 /**
  * Initialize the tracking indicator
@@ -32,11 +33,11 @@ async function initialize() {
 async function loadTrackingSettings() {
   try {
     const settings = await chrome.storage.sync.get(window.CONFIG.TRACKING_ENABLED_KEY);
-    trackingEnabled = settings[window.CONFIG.TRACKING_ENABLED_KEY] !== undefined 
+    indicatorTrackingEnabled = settings[window.CONFIG.TRACKING_ENABLED_KEY] !== undefined 
       ? settings[window.CONFIG.TRACKING_ENABLED_KEY] 
       : true;
     
-    debug('Tracking enabled:', trackingEnabled);
+    debug('Tracking enabled:', indicatorTrackingEnabled);
   } catch (error) {
     console.error('Error loading tracking settings:', error);
   }
@@ -47,8 +48,8 @@ async function loadTrackingSettings() {
  */
 function handleStorageChanges(changes, area) {
   if (area === 'sync' && changes[window.CONFIG.TRACKING_ENABLED_KEY]) {
-    trackingEnabled = changes[window.CONFIG.TRACKING_ENABLED_KEY].newValue;
-    debug('Tracking setting changed:', trackingEnabled);
+    indicatorTrackingEnabled = changes[window.CONFIG.TRACKING_ENABLED_KEY].newValue;
+    debug('Tracking setting changed:', indicatorTrackingEnabled);
     
     // Update all existing indicators
     updateAllTrackingIndicators();
@@ -67,7 +68,7 @@ function startComposeObserver() {
         for (const node of mutation.addedNodes) {
           if (node.nodeType === Node.ELEMENT_NODE) {
             // Check for compose toolbars
-            const toolbars = node.querySelectorAll(CONFIG.COMPOSE_TOOLBAR_SELECTOR);
+            const toolbars = node.querySelectorAll(window.CONFIG.COMPOSE_TOOLBAR_SELECTOR);
             if (toolbars.length > 0) {
               for (const toolbar of toolbars) {
                 addTrackingIndicator(toolbar);
@@ -75,7 +76,7 @@ function startComposeObserver() {
             }
             
             // Also check if the node itself is a toolbar
-            if (node.matches && node.matches(CONFIG.COMPOSE_TOOLBAR_SELECTOR)) {
+            if (node.matches && node.matches(window.CONFIG.COMPOSE_TOOLBAR_SELECTOR)) {
               addTrackingIndicator(node);
             }
           }
@@ -91,7 +92,7 @@ function startComposeObserver() {
   });
   
   // Also check for any existing compose toolbars
-  const existingToolbars = document.querySelectorAll(CONFIG.COMPOSE_TOOLBAR_SELECTOR);
+  const existingToolbars = document.querySelectorAll(window.CONFIG.COMPOSE_TOOLBAR_SELECTOR);
   for (const toolbar of existingToolbars) {
     addTrackingIndicator(toolbar);
   }
@@ -154,7 +155,7 @@ function updateIndicatorState(indicatorContainer) {
   const indicatorIcon = indicatorContainer.querySelector('.tracking-indicator-icon');
   const indicatorText = indicatorContainer.querySelector('.tracking-indicator-text');
   
-  if (trackingEnabled) {
+  if (indicatorTrackingEnabled) {
     indicatorIcon.style.backgroundColor = '#4CAF50'; // Green
     indicatorText.textContent = 'Tracking ON';
     indicatorText.style.color = '#4CAF50';
@@ -180,15 +181,15 @@ function updateAllTrackingIndicators() {
  */
 async function toggleTracking(indicatorContainer) {
   // Toggle tracking state
-  trackingEnabled = !trackingEnabled;
+  indicatorTrackingEnabled = !indicatorTrackingEnabled;
   
   // Save to storage
-  await chrome.storage.sync.set({ [window.CONFIG.TRACKING_ENABLED_KEY]: trackingEnabled });
+  await chrome.storage.sync.set({ [window.CONFIG.TRACKING_ENABLED_KEY]: indicatorTrackingEnabled });
   
   // Update indicator
   updateIndicatorState(indicatorContainer);
   
-  debug('Tracking toggled:', trackingEnabled);
+  debug('Tracking toggled:', indicatorTrackingEnabled);
 }
 
 /**
@@ -206,3 +207,4 @@ if (document.readyState === 'loading') {
 } else {
   initialize();
 }
+})();
