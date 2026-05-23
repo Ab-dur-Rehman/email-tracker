@@ -13,7 +13,8 @@
 const GMAIL_CONFIG = {
   COMPOSE_CONTAINER_SELECTOR: 'div[role="textbox"][aria-label="Message Body"], div[role="textbox"][contenteditable="true"][aria-label*="Message Body"]',
   COMPOSE_ROOT_SELECTOR: 'div[role="dialog"], table[role="presentation"]',
-  SEND_BUTTON_SELECTOR: 'div[role="button"][data-tooltip^="Send"], div[role="button"][aria-label^="Send"]'
+  SEND_BUTTON_SELECTOR: 'div[role="button"][data-tooltip^="Send"], div[role="button"][aria-label^="Send"], div[role="button"][data-tooltip*="Send"]',
+  ACCOUNT_SELECTOR: 'a[aria-label*="Google Account"], a[title*="@"]'
 };
 
 // State management
@@ -21,6 +22,7 @@ let trackingEnabled = window.CONFIG.trackingEnabled; // Use the global CONFIG
 let composeObserver = null;
 let activeComposeElements = new Map(); // Maps compose elements to their tracking IDs
 let preparingComposeElements = new WeakMap();
+let composeScanInterval = null;
 
 /**
  * Initialize the Gmail integration
@@ -43,6 +45,7 @@ async function initialize() {
   // Gmail's compose markup changes often. Delegated handling is more reliable
   // than binding directly to a button inside a specific compose form.
   document.addEventListener('click', handleDocumentSendClick, true);
+  registerActiveGmailAccount();
 }
 
 /**
@@ -129,9 +132,23 @@ function startComposeObserver() {
   });
   
   // Also check for any existing compose windows
+  scanComposeWindows();
+
+  if (composeScanInterval) {
+    clearInterval(composeScanInterval);
+  }
+  composeScanInterval = setInterval(scanComposeWindows, 1000);
+}
+
+function scanComposeWindows() {
   const existingComposeElements = document.querySelectorAll(GMAIL_CONFIG.COMPOSE_CONTAINER_SELECTOR);
   for (const composeElement of existingComposeElements) {
     handleNewComposeElement(composeElement);
+  }
+
+  const sendButtons = document.querySelectorAll(GMAIL_CONFIG.SEND_BUTTON_SELECTOR);
+  for (const sendButton of sendButtons) {
+    attachSendButtonListener(sendButton);
   }
 }
 
@@ -153,6 +170,16 @@ function handleNewComposeElement(composeElement) {
   debug('Compose element setup complete with tracking ID:', trackingId);
 }
 
+function attachSendButtonListener(sendButton) {
+  if (sendButton.dataset.emailTrackerListener === 'true') {
+    return;
+  }
+
+  sendButton.dataset.emailTrackerListener = 'true';
+  sendButton.addEventListener('click', handleDocumentSendClick, true);
+  debug('Attached send button listener');
+}
+
 /**
  * Handle delegated Gmail send button clicks.
  */
@@ -169,10 +196,11 @@ async function handleDocumentSendClick(event) {
 
   const composeElement = findComposeElementForSendButton(sendButton);
   if (!composeElement) {
-    debug('Could not find compose body for send button');
+    console.warn('Email Tracker (Gmail): send clicked, but compose body was not found');
     return;
   }
 
+  console.info('Email Tracker (Gmail): send click captured');
   event.preventDefault();
   event.stopImmediatePropagation();
 
@@ -189,7 +217,11 @@ async function handleDocumentSendClick(event) {
  */
 function findComposeElementForSendButton(sendButton) {
   const composeRoot = sendButton.closest(GMAIL_CONFIG.COMPOSE_ROOT_SELECTOR) || document;
-  return composeRoot.querySelector(GMAIL_CONFIG.COMPOSE_CONTAINER_SELECTOR);
+  const composeElement = composeRoot.querySelector(GMAIL_CONFIG.COMPOSE_CONTAINER_SELECTOR);
+  if (composeElement) return composeElement;
+
+  const allComposeElements = Array.from(document.querySelectorAll(GMAIL_CONFIG.COMPOSE_CONTAINER_SELECTOR));
+  return allComposeElements.find(element => element.offsetParent !== null) || null;
 }
 
 /**
@@ -213,6 +245,7 @@ async function prepareComposeForTracking(composeElement) {
   const preparation = (async () => {
     // Get email details
     const emailDetails = extractEmailDetails(composeElement);
+    emailDetails.senderAccount = detectActiveGmailAccount();
     
     // Create tracking session in background
     const response = await chrome.runtime.sendMessage({
@@ -232,7 +265,7 @@ async function prepareComposeForTracking(composeElement) {
       composeElement.dataset.emailTrackerPrepared = 'true';
       composeElement.dataset.emailTrackerId = serverTrackingId;
       
-      debug('Email prepared for tracking with ID:', serverTrackingId);
+      console.info('Email Tracker (Gmail): tracking session created', serverTrackingId);
     } else {
       console.error('Failed to create tracking session:', response?.error || 'Unknown error');
     }
@@ -244,6 +277,7 @@ async function prepareComposeForTracking(composeElement) {
     await preparation;
   } catch (error) {
     console.error('Error preparing email for tracking:', error);
+    throw error;
   } finally {
     preparingComposeElements.delete(composeElement);
   }
@@ -266,7 +300,45 @@ function extractEmailDetails(composeElement) {
   return {
     subject,
     recipients,
+    senderAccount: detectActiveGmailAccount(),
     content: composeElement.innerHTML
+  };
+}
+
+function registerActiveGmailAccount() {
+  const account = detectActiveGmailAccount();
+  if (!account.email) return;
+
+  chrome.runtime.sendMessage({
+    type: 'REGISTER_GMAIL_ACCOUNT',
+    account
+  });
+}
+
+function detectActiveGmailAccount() {
+  const accountLinks = Array.from(document.querySelectorAll(GMAIL_CONFIG.ACCOUNT_SELECTOR));
+  const text = accountLinks
+    .map(link => `${link.getAttribute('aria-label') || ''} ${link.getAttribute('title') || ''} ${link.textContent || ''}`)
+    .join(' ');
+  const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+
+  if (emailMatch) {
+    return {
+      id: emailMatch[0],
+      email: emailMatch[0],
+      name: emailMatch[0],
+      source: 'gmail_page',
+      connectedAt: Date.now()
+    };
+  }
+
+  const mailboxMatch = window.location.pathname.match(/\/mail\/u\/([^/]+)/);
+  return {
+    id: mailboxMatch ? `gmail-u-${mailboxMatch[1]}` : 'gmail-current-tab',
+    email: '',
+    name: mailboxMatch ? `Gmail account ${mailboxMatch[1]}` : 'Current Gmail tab',
+    source: 'gmail_page',
+    connectedAt: Date.now()
   };
 }
 

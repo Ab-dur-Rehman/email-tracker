@@ -73,6 +73,31 @@ async function saveConnectedAccounts() {
   }
 }
 
+async function registerGmailAccount(account) {
+  if (!account || (!account.email && !account.id)) {
+    return connectedGmailAccounts;
+  }
+
+  const accountId = account.email || account.id;
+  const normalizedAccount = {
+    id: accountId,
+    email: account.email || '',
+    name: account.name || account.email || accountId,
+    picture: account.picture || '',
+    source: account.source || 'manual',
+    connectedAt: account.connectedAt || Date.now(),
+    lastSeenAt: Date.now()
+  };
+
+  connectedGmailAccounts = [
+    normalizedAccount,
+    ...connectedGmailAccounts.filter(existing => (existing.email || existing.id) !== accountId)
+  ];
+
+  await saveConnectedAccounts();
+  return connectedGmailAccounts;
+}
+
 /**
  * Save tracking data to browser storage
  */
@@ -176,7 +201,7 @@ async function connectGmailAccount() {
   }
 
   connectedGmailAccounts = [
-    account,
+    { ...account, source: 'chrome_identity', lastSeenAt: Date.now() },
     ...connectedGmailAccounts.filter(existing => existing.email !== account.email)
   ];
   await saveConnectedAccounts();
@@ -472,6 +497,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'GET_GMAIL_ACCOUNTS':
       sendResponse({ success: true, accounts: connectedGmailAccounts });
       break;
+
+    case 'REGISTER_GMAIL_ACCOUNT':
+      registerGmailAccount(message.account)
+        .then(accounts => sendResponse({ success: true, accounts }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
 
     case 'SET_TRACKING_ENABLED':
       chrome.storage.sync.set({ trackingEnabled: Boolean(message.enabled) })
