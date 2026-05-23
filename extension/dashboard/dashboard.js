@@ -95,7 +95,7 @@ function processData() {
   // Apply status filter
   const statusValue = statusFilter.value;
   filteredData = statusValue !== 'all' ? 
-    filteredBySearch.filter(session => session.status === statusValue) : 
+    filteredBySearch.filter(session => getSessionConfidence(session).status === statusValue) : 
     filteredBySearch;
   
   // Sort by sent date (newest first)
@@ -172,7 +172,7 @@ function calculateStatistics(data) {
       stats.opened++;
     }
     
-    if (session.linkClicks && session.linkClicks.length > 0) {
+    if (getSessionConfidence(session).status === 'likely_human_engaged') {
       stats.clicked++;
     }
   });
@@ -526,7 +526,7 @@ function updateTable() {
   // If no data, show empty message
   if (filteredData.length === 0) {
     const emptyRow = document.createElement('tr');
-    emptyRow.innerHTML = `<td colspan="7" style="text-align: center;">No tracking data found</td>`;
+    emptyRow.innerHTML = `<td colspan="8" style="text-align: center;">No tracking data found</td>`;
     trackingTableBody.appendChild(emptyRow);
     return;
   }
@@ -545,13 +545,7 @@ function updateTable() {
 function createTableRow(session) {
   const row = document.createElement('tr');
   
-  // Determine status
-  let status = 'sent';
-  if (session.linkClicks && session.linkClicks.length > 0) {
-    status = 'clicked';
-  } else if (session.pixelLoads && session.pixelLoads.length > 0) {
-    status = 'opened';
-  }
+  const confidence = getSessionConfidence(session);
   
   // Format date
   const sentDate = new Date(session.sentTimestamp);
@@ -562,9 +556,10 @@ function createTableRow(session) {
     <td>${session.emailSubject || 'No Subject'}</td>
     <td>${formatRecipients(session.recipients)}</td>
     <td>${formattedDate}</td>
-    <td><span class="status-badge status-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></td>
+    <td><span class="status-badge status-${confidence.status}">${confidence.label}</span></td>
     <td>${session.pixelLoads ? session.pixelLoads.length : 0}</td>
     <td>${session.linkClicks ? session.linkClicks.length : 0}</td>
+    <td>${confidence.score}/100</td>
     <td>
       <button class="action-btn" data-action="view" data-id="${session.id}">View Details</button>
     </td>
@@ -617,11 +612,12 @@ function showEmailDetails(session) {
         <td>${formatDevice(load.device)}</td>
         <td>${formatLocation(load.geolocation)}</td>
         <td>${load.device ? load.device.browser : 'Unknown'}</td>
+        <td>${formatConfidence(load.confidence || getSessionConfidence(session))}</td>
       `;
       opensTable.appendChild(row);
     });
   } else {
-    opensTable.innerHTML = '<tr><td colspan="4" style="text-align: center;">No opens recorded</td></tr>';
+    opensTable.innerHTML = '<tr><td colspan="5" style="text-align: center;">No image loads recorded</td></tr>';
   }
   
   // Populate clicks table
@@ -636,11 +632,12 @@ function showEmailDetails(session) {
         <td>${click.linkId || 'Unknown'}</td>
         <td>${formatDevice(click.device)}</td>
         <td>${formatLocation(click.geolocation)}</td>
+        <td>${formatConfidence(click.confidence || getSessionConfidence(session))}</td>
       `;
       clicksTable.appendChild(row);
     });
   } else {
-    clicksTable.innerHTML = '<tr><td colspan="4" style="text-align: center;">No clicks recorded</td></tr>';
+    clicksTable.innerHTML = '<tr><td colspan="5" style="text-align: center;">No clicks recorded</td></tr>';
   }
   
   // Show modal
@@ -667,6 +664,39 @@ function formatLocation(geolocation) {
   }
   
   return geolocation.country || 'Unknown';
+}
+
+function getSessionConfidence(session) {
+  if (session.confidence) {
+    return session.confidence;
+  }
+
+  if (session.linkClicks && session.linkClicks.length > 0) {
+    return {
+      score: 75,
+      label: 'Likely human engaged',
+      status: 'likely_human_engaged'
+    };
+  }
+
+  if (session.pixelLoads && session.pixelLoads.length > 0) {
+    return {
+      score: 45,
+      label: 'Image loaded',
+      status: 'image_loaded'
+    };
+  }
+
+  return {
+    score: 0,
+    label: 'Sent',
+    status: 'sent'
+  };
+}
+
+function formatConfidence(confidence) {
+  if (!confidence) return 'Unknown';
+  return `${confidence.label || 'Signal'} (${confidence.score}/100)`;
 }
 
 /**

@@ -68,3 +68,15 @@ Key settings include:
 ## Production Caveats
 
 Email open tracking is based on a remote image loading. It can be blocked by mail clients, inflated by security scanners, or proxied by providers like Gmail and Apple Mail. Treat opens as a signal, not a guaranteed human read receipt.
+
+## Engagement Status Model
+
+The app now reports confidence-based engagement states instead of claiming a guaranteed human read:
+
+- **Sent**: no tracking signal has been recorded yet.
+- **Image Loaded**: the hidden tracking image loaded, but this may be a mail client, proxy, or scanner.
+- **Likely Opened**: the image-load signal looks more like a normal open.
+- **Possible Bot/Proxy**: timing or user-agent signals look automated.
+- **Likely Human Engaged**: a tracked link click or stronger engagement signal was recorded.
+
+Use **Likely Human Engaged** as the strongest signal. A true “read by human” state requires an explicit human action such as a reply, confirmation click, form submission, booking, or approval.

@@ -35,11 +35,11 @@
         </div>
         <div class="card" id="opened-card">
           <div class="card-value" id="opened-count">0</div>
-          <div class="card-label">Emails Opened</div>
+          <div class="card-label">Image Loads</div>
         </div>
         <div class="card" id="clicked-card">
           <div class="card-value" id="clicked-count">0</div>
-          <div class="card-label">Links Clicked</div>
+          <div class="card-label">Likely Engaged</div>
         </div>
         <div class="card" id="open-rate-card">
           <div class="card-value" id="open-rate">0%</div>
@@ -71,8 +71,10 @@
           <select id="status-filter">
             <option value="all">All Status</option>
             <option value="sent">Sent</option>
-            <option value="opened">Opened</option>
-            <option value="clicked">Clicked</option>
+            <option value="image_loaded">Image Loaded</option>
+            <option value="likely_opened">Likely Opened</option>
+            <option value="likely_human_engaged">Likely Human Engaged</option>
+            <option value="possible_bot_proxy">Possible Bot/Proxy</option>
           </select>
         </div>
         <table id="tracking-table">
@@ -82,8 +84,9 @@
               <th>Recipients</th>
               <th>Sent Date</th>
               <th>Status</th>
-              <th>Opens</th>
+              <th>Image Loads</th>
               <th>Clicks</th>
+              <th>Confidence</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -118,7 +121,7 @@
             </div>
             <div class="modal-stat">
               <div class="modal-stat-value" id="modal-open-count">0</div>
-              <div class="modal-stat-label">Opens</div>
+              <div class="modal-stat-label">Image Loads</div>
             </div>
             <div class="modal-stat">
               <div class="modal-stat-value" id="modal-click-count">0</div>
@@ -136,6 +139,7 @@
                 <th>Device</th>
                 <th>Location</th>
                 <th>Browser</th>
+                <th>Confidence</th>
               </tr>
             </thead>
             <tbody id="modal-opens-table">
@@ -153,6 +157,7 @@
                 <th>Link</th>
                 <th>Device</th>
                 <th>Location</th>
+                <th>Confidence</th>
               </tr>
             </thead>
             <tbody id="modal-clicks-table">

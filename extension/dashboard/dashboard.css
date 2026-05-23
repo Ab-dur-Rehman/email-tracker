@@ -334,6 +334,26 @@ footer a:hover {
   color: var(--gray-800);
 }
 
+.status-image_loaded {
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.status-likely_opened {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.status-likely_human_engaged {
+  background-color: var(--warning-color);
+  color: var(--gray-800);
+}
+
+.status-possible_bot_proxy {
+  background-color: var(--danger-color);
+  color: white;
+}
+
 /* Action buttons */
 .action-btn {
   background: none;

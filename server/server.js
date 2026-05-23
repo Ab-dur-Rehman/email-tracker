@@ -45,6 +45,119 @@ const TRACKING_PIXEL = Buffer.from(
   'base64'
 );
 
+function classifyEngagementEvent({ type, userAgent = '', eventTimestamp = Date.now(), sentTimestamp = 0, hasLinkClick = false }) {
+  const ua = userAgent.toLowerCase();
+  const secondsAfterSend = sentTimestamp ? Math.round((eventTimestamp - sentTimestamp) / 1000) : null;
+  let score = type === 'click' ? 75 : 45;
+  const reasons = [];
+
+  if (type === 'click') {
+    reasons.push('Tracked link was clicked.');
+  } else {
+    reasons.push('Tracking image was loaded.');
+  }
+
+  if (ua.includes('googleimageproxy')) {
+    score -= 15;
+    reasons.push('Loaded through Google image proxy.');
+  }
+
+  if (ua.includes('proofpoint') || ua.includes('mimecast') || ua.includes('barracuda') || ua.includes('safelinks')) {
+    score -= 35;
+    reasons.push('User agent resembles a security scanner.');
+  }
+
+  if (ua.includes('apple') && ua.includes('mail')) {
+    score -= 20;
+    reasons.push('May be affected by Apple Mail Privacy Protection.');
+  }
+
+  if (secondsAfterSend !== null && secondsAfterSend < 5) {
+    score -= 30;
+    reasons.push('Event happened almost immediately after send.');
+  }
+
+  if (hasLinkClick && type === 'open') {
+    score += 25;
+    reasons.push('Same email also has a tracked link click.');
+  }
+
+  score = Math.max(0, Math.min(100, score));
+
+  let label = 'Uncertain open';
+  let status = 'image_loaded';
+  if (type === 'click' || score >= 80) {
+    label = 'Likely human engaged';
+    status = 'likely_human_engaged';
+  } else if (score >= 55) {
+    label = 'Likely opened';
+    status = 'likely_opened';
+  } else if (score >= 30) {
+    label = 'Image loaded';
+  } else {
+    label = 'Possible bot/proxy';
+    status = 'possible_bot_proxy';
+  }
+
+  return {
+    score,
+    label,
+    status,
+    reasons
+  };
+}
+
+function summarizeSessionConfidence(session) {
+  const clicks = session.linkClicks || [];
+  const opens = session.pixelLoads || [];
+
+  if (clicks.length > 0) {
+    const bestClick = clicks.reduce((best, click) => {
+      const current = click.confidence || classifyEngagementEvent({
+        type: 'click',
+        userAgent: click.userAgent,
+        eventTimestamp: click.timestamp,
+        sentTimestamp: session.sentTimestamp
+      });
+      return !best || current.score > best.score ? current : best;
+    }, null);
+
+    return {
+      ...bestClick,
+      status: 'likely_human_engaged',
+      label: 'Likely human engaged'
+    };
+  }
+
+  if (opens.length > 0) {
+    return opens.reduce((best, open) => {
+      const current = open.confidence || classifyEngagementEvent({
+        type: 'open',
+        userAgent: open.userAgent,
+        eventTimestamp: open.timestamp,
+        sentTimestamp: session.sentTimestamp,
+        hasLinkClick: false
+      });
+      return !best || current.score > best.score ? current : best;
+    }, null);
+  }
+
+  return {
+    score: 0,
+    label: 'Sent',
+    status: 'sent',
+    reasons: ['No image load, click, reply, or confirmation recorded yet.']
+  };
+}
+
+function updateSessionConfidence(trackingId) {
+  const session = trackingData[trackingId];
+  if (!session) return;
+
+  session.confidence = summarizeSessionConfidence(session);
+  session.status = session.confidence.status;
+}
+
 /**
  * Helper function to extract client information from request
  */
@@ -100,7 +213,16 @@ app.get('/pixel/:trackingId', trackingLimiter, (req, res) => {
     };
   }
   
+  clientInfo.confidence = classifyEngagementEvent({
+    type: 'open',
+    userAgent: clientInfo.userAgent,
+    eventTimestamp: clientInfo.timestamp,
+    sentTimestamp: trackingData[trackingId].sentTimestamp,
+    hasLinkClick: (trackingData[trackingId].linkClicks || []).length > 0
+  });
+
   trackingData[trackingId].pixelLoads.push(clientInfo);
+  updateSessionConfidence(trackingId);
   
   // Set ETag for caching control and verification
   const etag = `"${trackingId}_${Date.now()}"`;
@@ -135,11 +257,20 @@ app.get('/link/:trackingId/:linkId', trackingLimiter, (req, res) => {
     };
   }
   
-  trackingData[trackingId].linkClicks.push({
+  const clickEvent = {
     ...clientInfo,
     linkId,
-    url: redirectUrl
-  });
+    url: redirectUrl,
+    confidence: classifyEngagementEvent({
+      type: 'click',
+      userAgent: clientInfo.userAgent,
+      eventTimestamp: clientInfo.timestamp,
+      sentTimestamp: trackingData[trackingId].sentTimestamp
+    })
+  };
+
+  trackingData[trackingId].linkClicks.push(clickEvent);
+  updateSessionConfidence(trackingId);
   
   // Redirect to the original URL
   if (redirectUrl) {

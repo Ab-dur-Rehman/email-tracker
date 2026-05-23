@@ -164,7 +164,7 @@ function calculateStatistics() {
       stats.opened++;
     }
     
-    if (session.linkClicks && session.linkClicks.length > 0) {
+    if (getSessionConfidence(session).status === 'likely_human_engaged') {
       stats.clicked++;
     }
   });
@@ -222,7 +222,8 @@ function getRecentActivities() {
           type: 'opened',
           emailSubject: session.emailSubject,
           timestamp: load.timestamp,
-          device: load.device
+          device: load.device,
+          confidence: load.confidence || getSessionConfidence(session)
         });
       });
     }
@@ -234,7 +235,8 @@ function getRecentActivities() {
           type: 'clicked',
           emailSubject: session.emailSubject,
           timestamp: click.timestamp,
-          linkId: click.linkId
+          linkId: click.linkId,
+          confidence: click.confidence || getSessionConfidence(session)
         });
       });
     }
@@ -289,12 +291,12 @@ function createActivityItem(activity) {
       meta.textContent = `To: ${formatRecipients(activity.recipients)} • ${formatTime(activity.timestamp)}`;
       break;
     case 'opened':
-      title.textContent = `Email Opened: "${truncateText(activity.emailSubject, 30)}"`;
-      meta.textContent = `Device: ${formatDevice(activity.device)} • ${formatTime(activity.timestamp)}`;
+      title.textContent = `${activity.confidence?.label || 'Image Loaded'}: "${truncateText(activity.emailSubject, 30)}"`;
+      meta.textContent = `Confidence: ${formatConfidence(activity.confidence)} • ${formatDevice(activity.device)} • ${formatTime(activity.timestamp)}`;
       break;
     case 'clicked':
-      title.textContent = `Link Clicked: "${truncateText(activity.emailSubject, 30)}"`;
-      meta.textContent = `Link ID: ${activity.linkId} • ${formatTime(activity.timestamp)}`;
+      title.textContent = `Likely Human Engaged: "${truncateText(activity.emailSubject, 30)}"`;
+      meta.textContent = `Confidence: ${formatConfidence(activity.confidence)} • Link ID: ${activity.linkId} • ${formatTime(activity.timestamp)}`;
       break;
   }
   
@@ -329,6 +331,39 @@ function formatDevice(device) {
   if (!device) return 'Unknown';
   
   return `${device.browser} on ${device.os}`;
+}
+
+function getSessionConfidence(session) {
+  if (session.confidence) {
+    return session.confidence;
+  }
+
+  if (session.linkClicks && session.linkClicks.length > 0) {
+    return {
+      score: 75,
+      label: 'Likely human engaged',
+      status: 'likely_human_engaged'
+    };
+  }
+
+  if (session.pixelLoads && session.pixelLoads.length > 0) {
+    return {
+      score: 45,
+      label: 'Image loaded',
+      status: 'image_loaded'
+    };
+  }
+
+  return {
+    score: 0,
+    label: 'Sent',
+    status: 'sent'
+  };
+}
+
+function formatConfidence(confidence) {
+  if (!confidence) return 'Unknown';
+  return `${confidence.score}/100`;
 }
 
 /**
