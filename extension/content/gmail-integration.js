@@ -89,6 +89,15 @@ function handleMessages(message, sender, sendResponse) {
     });
     return false;
   }
+
+  if (message.type === 'GET_GMAIL_PAGE_ACCOUNT') {
+    sendResponse({
+      success: true,
+      account: detectActiveGmailAccount()
+    });
+    return false;
+  }
+
   return false;
 }
 

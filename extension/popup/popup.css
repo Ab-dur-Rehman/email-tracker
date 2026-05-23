@@ -65,6 +65,11 @@ h2 {
   margin-bottom: 0;
 }
 
+.account-actions {
+  display: flex;
+  gap: 6px;
+}
+
 /* Toggle Switch */
 .toggle-container {
   display: flex;

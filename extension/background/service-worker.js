@@ -213,7 +213,7 @@ async function connectGmailAccount() {
  * Disconnect a Gmail account from extension state.
  */
 async function disconnectGmailAccount(email) {
-  connectedGmailAccounts = connectedGmailAccounts.filter(account => account.email !== email);
+  connectedGmailAccounts = connectedGmailAccounts.filter(account => (account.email || account.id) !== email);
   await saveConnectedAccounts();
   return connectedGmailAccounts;
 }
@@ -366,6 +366,7 @@ function createTrackingSession(emailDetails) {
   };
   
   saveTrackingData();
+  syncWithServer();
   return trackingId;
 }
 
@@ -497,6 +498,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'GET_GMAIL_ACCOUNTS':
       sendResponse({ success: true, accounts: connectedGmailAccounts });
       break;
+
+    case 'SYNC_NOW':
+      syncWithServer()
+        .then(() => sendResponse({ success: true, data: activeTrackingSessions }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
 
     case 'REGISTER_GMAIL_ACCOUNT':
       registerGmailAccount(message.account)

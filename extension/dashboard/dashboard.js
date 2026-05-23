@@ -44,7 +44,7 @@ async function initialize() {
   console.log('Email Tracker Dashboard initialized');
   
   // Load tracking data
-  await loadTrackingData();
+  await syncTrackingData();
   
   // Process and display data
   processData();
@@ -52,6 +52,15 @@ async function initialize() {
   
   // Set up event listeners
   setupEventListeners();
+}
+
+async function syncTrackingData() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'SYNC_NOW' }, (response) => {
+      trackingData = response && response.success ? response.data || {} : trackingData;
+      resolve();
+    });
+  });
 }
 
 /**
@@ -712,7 +721,7 @@ function setupEventListeners() {
   
   // Refresh button
   refreshBtn.addEventListener('click', async () => {
-    await loadTrackingData();
+    await syncTrackingData();
     processData();
     updateUI();
   });

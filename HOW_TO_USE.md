@@ -69,6 +69,44 @@ Key settings include:
 
 Email open tracking is based on a remote image loading. It can be blocked by mail clients, inflated by security scanners, or proxied by providers like Gmail and Apple Mail. Treat opens as a signal, not a guaranteed human read receipt.
 
+The tracking backend must be deployed on a public HTTPS URL because recipients load the tracking image from outside your browser. The extension currently points to:
+
+```text
+https://email-tracker-virid.vercel.app
+```
+
+If you deploy your own backend, update `window.CONFIG.API_ENDPOINT` in `extension/content/shared-config.js` and `CONFIG.API_ENDPOINT` in `extension/background/service-worker.js`, then reload the extension. For reliable production tracking, replace the server's in-memory storage with a database; serverless memory can reset between requests.
+
+### Backend Database Setup
+
+The backend now supports Postgres persistence through `DATABASE_URL`.
+
+1. Create a hosted Postgres database, for example Vercel Postgres, Neon, Supabase, or Railway.
+2. Copy its connection string.
+3. Set this environment variable on your backend deployment:
+
+```text
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
+```
+
+4. Redeploy the backend.
+5. Check:
+
+```text
+https://YOUR_BACKEND_DOMAIN/health
+```
+
+Expected response:
+
+```json
+{
+  "success": true,
+  "storage": "postgres"
+}
+```
+
+If `DATABASE_URL` is not set, the backend falls back to memory mode for local development, but open events may disappear on serverless deployments.
+
 ## Engagement Status Model
 
 The app now reports confidence-based engagement states instead of claiming a guaranteed human read:

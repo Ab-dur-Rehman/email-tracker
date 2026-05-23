@@ -19,6 +19,7 @@ const emptyState = document.getElementById('empty-state');
 const clearDataBtn = document.getElementById('clear-data-btn');
 const viewDashboardBtn = document.getElementById('view-dashboard-btn');
 const connectGmailBtn = document.getElementById('connect-gmail-btn');
+const addCurrentGmailBtn = document.getElementById('add-current-gmail-btn');
 const gmailAccountList = document.getElementById('gmail-account-list');
 const gmailEmptyState = document.getElementById('gmail-empty-state');
 
@@ -39,7 +40,7 @@ async function initialize() {
   updateToggleStatus(trackingEnabled);
   
   // Load tracking data
-  await loadTrackingData();
+  await syncTrackingData();
   await loadGmailAccounts();
   
   // Update UI
@@ -76,11 +77,13 @@ function updateGmailAccounts() {
   if (gmailAccounts.length === 0) {
     gmailEmptyState.style.display = 'block';
     connectGmailBtn.textContent = 'Connect';
+    addCurrentGmailBtn.style.display = 'inline-block';
     return;
   }
 
   gmailEmptyState.style.display = 'none';
   connectGmailBtn.textContent = 'Add';
+  addCurrentGmailBtn.style.display = 'inline-block';
 
   gmailAccounts.forEach(account => {
     const item = document.createElement('div');
@@ -105,7 +108,7 @@ function updateGmailAccounts() {
     const disconnect = document.createElement('button');
     disconnect.className = 'btn compact secondary';
     disconnect.textContent = 'Remove';
-    disconnect.addEventListener('click', () => disconnectGmailAccount(account.email));
+    disconnect.addEventListener('click', () => disconnectGmailAccount(account.email || account.id));
 
     details.appendChild(name);
     details.appendChild(email);
@@ -113,6 +116,15 @@ function updateGmailAccounts() {
     item.appendChild(details);
     item.appendChild(disconnect);
     gmailAccountList.appendChild(item);
+  });
+}
+
+async function syncTrackingData() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'SYNC_NOW' }, (response) => {
+      trackingData = response && response.success ? response.data || {} : trackingData;
+      resolve();
+    });
   });
 }
 
@@ -451,6 +463,8 @@ function setupEventListeners() {
       updateGmailAccounts();
     });
   });
+
+  addCurrentGmailBtn.addEventListener('click', addCurrentGmailTab);
   
   // Clear data button
   clearDataBtn.addEventListener('click', async () => {
@@ -486,6 +500,39 @@ async function disconnectGmailAccount(email) {
     await loadGmailAccounts();
     updateGmailAccounts();
   });
+}
+
+async function addCurrentGmailTab() {
+  addCurrentGmailBtn.disabled = true;
+  addCurrentGmailBtn.textContent = 'Adding...';
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url || !tab.url.startsWith('https://mail.google.com/')) {
+      alert('Open the Gmail account tab you want to add, then click Add Tab again.');
+      return;
+    }
+
+    chrome.tabs.sendMessage(tab.id, { type: 'GET_GMAIL_PAGE_ACCOUNT' }, (response) => {
+      const account = response && response.success ? response.account : null;
+      if (!account) {
+        alert('Could not detect the current Gmail account. Refresh Gmail and try again.');
+        return;
+      }
+
+      chrome.runtime.sendMessage({ type: 'REGISTER_GMAIL_ACCOUNT', account }, async (registerResponse) => {
+        if (!registerResponse || !registerResponse.success) {
+          alert(registerResponse?.error || 'Could not add this Gmail tab.');
+        }
+
+        await loadGmailAccounts();
+        updateGmailAccounts();
+      });
+    });
+  } finally {
+    addCurrentGmailBtn.disabled = false;
+    addCurrentGmailBtn.textContent = 'Add Tab';
+  }
 }
 
 // Initialize popup when DOM is loaded

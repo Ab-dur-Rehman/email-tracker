@@ -13,24 +13,35 @@ const cors = require('cors');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { v4: uuidv4 } = require('uuid');
 const geoip = require('geoip-lite');
 const UAParser = require('ua-parser-js');
-const path = require('path');
-const fs = require('fs');
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Database simulation (in a real app, use a proper database)
-let trackingData = {};
+const usePostgres = Boolean(process.env.DATABASE_URL);
+let pool = null;
+let dbReadyPromise = null;
+let memoryTrackingData = {};
+
+if (usePostgres) {
+  const { Pool } = require('pg');
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: false }
+  });
+}
 
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors()); // Enable CORS for extension requests
 app.use(express.json()); // Parse JSON request bodies
 app.use(morgan('combined')); // Request logging
+
+const asyncHandler = handler => (req, res, next) => {
+  Promise.resolve(handler(req, res, next)).catch(next);
+};
 
 // Rate limiting for pixel and link endpoints
 const trackingLimiter = rateLimit({
@@ -150,12 +161,149 @@ function summarizeSessionConfidence(session) {
   };
 }
 
-function updateSessionConfidence(trackingId) {
-  const session = trackingData[trackingId];
-  if (!session) return;
-
+function updateSessionConfidence(session) {
+  if (!session) return session;
   session.confidence = summarizeSessionConfidence(session);
   session.status = session.confidence.status;
+  return session;
+}
+
+function normalizeSession(session) {
+  const normalized = {
+    id: session.id,
+    emailSubject: session.emailSubject || session.subject || 'No Subject',
+    recipients: Array.isArray(session.recipients) ? session.recipients : [],
+    senderAccount: session.senderAccount || null,
+    sentTimestamp: session.sentTimestamp || Date.now(),
+    pixelLoads: Array.isArray(session.pixelLoads) ? session.pixelLoads : [],
+    linkClicks: Array.isArray(session.linkClicks) ? session.linkClicks : [],
+    status: session.status || 'sent',
+    confidence: session.confidence || null
+  };
+
+  return updateSessionConfidence(normalized);
+}
+
+function dedupeEvents(events, extraKey = '') {
+  const seen = new Set();
+  return events.filter(event => {
+    const key = [
+      event.timestamp || '',
+      event.userAgent || '',
+      event.ip || event.ipAddress || '',
+      event.linkId || '',
+      event.url || '',
+      extraKey
+    ].join('|');
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function mergeSessions(existing, incoming) {
+  if (!existing) return normalizeSession(incoming);
+
+  const merged = {
+    ...existing,
+    ...incoming,
+    id: existing.id || incoming.id,
+    emailSubject: incoming.emailSubject || existing.emailSubject,
+    recipients: incoming.recipients && incoming.recipients.length ? incoming.recipients : existing.recipients,
+    senderAccount: incoming.senderAccount || existing.senderAccount,
+    sentTimestamp: incoming.sentTimestamp || existing.sentTimestamp || Date.now(),
+    pixelLoads: dedupeEvents([
+      ...(existing.pixelLoads || []),
+      ...(incoming.pixelLoads || [])
+    ]),
+    linkClicks: dedupeEvents([
+      ...(existing.linkClicks || []),
+      ...(incoming.linkClicks || [])
+    ])
+  };
+
+  return normalizeSession(merged);
+}
+
+async function ensureDatabase() {
+  if (!usePostgres) return;
+  if (!dbReadyPromise) {
+    dbReadyPromise = pool.query(`
+      CREATE TABLE IF NOT EXISTS tracking_sessions (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+  }
+  await dbReadyPromise;
+}
+
+async function getSession(trackingId) {
+  if (!usePostgres) {
+    return memoryTrackingData[trackingId] || null;
+  }
+
+  await ensureDatabase();
+  const result = await pool.query(
+    'SELECT data FROM tracking_sessions WHERE id = $1',
+    [trackingId]
+  );
+
+  return result.rows[0] ? result.rows[0].data : null;
+}
+
+async function saveSession(session) {
+  const normalized = normalizeSession(session);
+
+  if (!usePostgres) {
+    memoryTrackingData[normalized.id] = normalized;
+    return normalized;
+  }
+
+  await ensureDatabase();
+  await pool.query(
+    `INSERT INTO tracking_sessions (id, data, created_at, updated_at)
+     VALUES ($1, $2::jsonb, NOW(), NOW())
+     ON CONFLICT (id)
+     DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+    [normalized.id, JSON.stringify(normalized)]
+  );
+
+  return normalized;
+}
+
+async function mergeAndSaveSession(incomingSession) {
+  const existingSession = await getSession(incomingSession.id);
+  return saveSession(mergeSessions(existingSession, incomingSession));
+}
+
+async function getAllSessions() {
+  if (!usePostgres) {
+    return memoryTrackingData;
+  }
+
+  await ensureDatabase();
+  const result = await pool.query(
+    'SELECT data FROM tracking_sessions ORDER BY updated_at DESC'
+  );
+
+  return result.rows.reduce((sessions, row) => {
+    sessions[row.data.id] = normalizeSession(row.data);
+    return sessions;
+  }, {});
+}
+
+async function clearAllSessions() {
+  if (!usePostgres) {
+    memoryTrackingData = {};
+    return;
+  }
+
+  await ensureDatabase();
+  await pool.query('DELETE FROM tracking_sessions');
 }
 
 /**
@@ -198,31 +346,28 @@ function getClientInfo(req) {
  * Tracking pixel endpoint
  * Handles email open tracking
  */
-app.get('/pixel/:trackingId', trackingLimiter, (req, res) => {
+app.get('/pixel/:trackingId', trackingLimiter, asyncHandler(async (req, res) => {
   const { trackingId } = req.params;
   const clientInfo = getClientInfo(req);
   
   console.log(`Pixel load: ${trackingId}`);
   
-  // Record the pixel load event
-  if (!trackingData[trackingId]) {
-    trackingData[trackingId] = {
-      id: trackingId,
-      pixelLoads: [],
-      linkClicks: []
-    };
-  }
+  const session = await getSession(trackingId) || {
+    id: trackingId,
+    pixelLoads: [],
+    linkClicks: []
+  };
   
   clientInfo.confidence = classifyEngagementEvent({
     type: 'open',
     userAgent: clientInfo.userAgent,
     eventTimestamp: clientInfo.timestamp,
-    sentTimestamp: trackingData[trackingId].sentTimestamp,
-    hasLinkClick: (trackingData[trackingId].linkClicks || []).length > 0
+    sentTimestamp: session.sentTimestamp,
+    hasLinkClick: (session.linkClicks || []).length > 0
   });
 
-  trackingData[trackingId].pixelLoads.push(clientInfo);
-  updateSessionConfidence(trackingId);
+  session.pixelLoads = [...(session.pixelLoads || []), clientInfo];
+  await saveSession(session);
   
   // Set ETag for caching control and verification
   const etag = `"${trackingId}_${Date.now()}"`;
@@ -235,27 +380,24 @@ app.get('/pixel/:trackingId', trackingLimiter, (req, res) => {
   res.setHeader('Content-Type', 'image/gif');
   res.setHeader('Content-Length', TRACKING_PIXEL.length);
   res.end(TRACKING_PIXEL);
-});
+}));
 
 /**
  * Link tracking endpoint
  * Handles link click tracking and redirects
  */
-app.get('/link/:trackingId/:linkId', trackingLimiter, (req, res) => {
+app.get('/link/:trackingId/:linkId', trackingLimiter, asyncHandler(async (req, res) => {
   const { trackingId, linkId } = req.params;
   const redirectUrl = req.query.url;
   const clientInfo = getClientInfo(req);
   
   console.log(`Link click: ${trackingId} / ${linkId}`);
   
-  // Record the link click event
-  if (!trackingData[trackingId]) {
-    trackingData[trackingId] = {
-      id: trackingId,
-      pixelLoads: [],
-      linkClicks: []
-    };
-  }
+  const session = await getSession(trackingId) || {
+    id: trackingId,
+    pixelLoads: [],
+    linkClicks: []
+  };
   
   const clickEvent = {
     ...clientInfo,
@@ -265,12 +407,12 @@ app.get('/link/:trackingId/:linkId', trackingLimiter, (req, res) => {
       type: 'click',
       userAgent: clientInfo.userAgent,
       eventTimestamp: clientInfo.timestamp,
-      sentTimestamp: trackingData[trackingId].sentTimestamp
+      sentTimestamp: session.sentTimestamp
     })
   };
 
-  trackingData[trackingId].linkClicks.push(clickEvent);
-  updateSessionConfidence(trackingId);
+  session.linkClicks = [...(session.linkClicks || []), clickEvent];
+  await saveSession(session);
   
   // Redirect to the original URL
   if (redirectUrl) {
@@ -278,72 +420,58 @@ app.get('/link/:trackingId/:linkId', trackingLimiter, (req, res) => {
   } else {
     res.status(400).send('Missing redirect URL');
   }
-});
+}));
 
 /**
  * Sync endpoint
  * Allows the extension to sync tracking data
  */
-app.post('/sync', express.json(), async (req, res) => {
-  try {
-    const { trackingSessions, timestamp } = req.body;
-    
-    // In a real implementation, we would:
-    // 1. Authenticate the request
-    // 2. Validate the data
-    // 3. Merge with server data
-    // 4. Store in a database
-    
-    // For this example, we'll just merge with our in-memory data
-    if (trackingSessions) {
-      Object.keys(trackingSessions).forEach(id => {
-        if (!trackingData[id]) {
-          trackingData[id] = trackingSessions[id];
-        } else {
-          // Merge data (simplified)
-          trackingData[id] = {
-            ...trackingData[id],
-            ...trackingSessions[id],
-            pixelLoads: [
-              ...(trackingData[id].pixelLoads || []),
-              ...(trackingSessions[id].pixelLoads || [])
-            ],
-            linkClicks: [
-              ...(trackingData[id].linkClicks || []),
-              ...(trackingSessions[id].linkClicks || [])
-            ]
-          };
-        }
-      });
+app.post('/sync', express.json(), asyncHandler(async (req, res) => {
+  const { trackingSessions } = req.body;
+
+  if (trackingSessions) {
+    for (const session of Object.values(trackingSessions)) {
+      if (session && session.id) {
+        await mergeAndSaveSession(session);
+      }
     }
-    
-    // Return any updated sessions
-    // In a real app, we'd filter based on timestamp
-    res.json({
-      success: true,
-      updatedSessions: trackingData
-    });
-  } catch (error) {
-    console.error('Sync error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
   }
-});
+  
+  res.json({
+    success: true,
+    storage: usePostgres ? 'postgres' : 'memory',
+    updatedSessions: await getAllSessions()
+  });
+}));
 
 /**
  * Clear tracking data endpoint (for testing/development)
  */
-app.post('/clear', (req, res) => {
-  trackingData = {};
+app.post('/clear', asyncHandler(async (req, res) => {
+  await clearAllSessions();
   res.json({ success: true, message: 'All tracking data cleared' });
-});
+}));
+
+app.get('/health', asyncHandler(async (req, res) => {
+  try {
+    await ensureDatabase();
+    res.json({
+      success: true,
+      storage: usePostgres ? 'postgres' : 'memory'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      storage: usePostgres ? 'postgres' : 'memory',
+      error: error.message
+    });
+  }
+}));
 
 /**
  * GDPR compliance endpoint - data export
  */
-app.get('/gdpr/export/:userId', (req, res) => {
+app.get('/gdpr/export/:userId', asyncHandler(async (req, res) => {
   const { userId } = req.params;
   
   // In a real implementation, we would:
@@ -355,9 +483,9 @@ app.get('/gdpr/export/:userId', (req, res) => {
   res.json({
     userId,
     exportDate: new Date().toISOString(),
-    trackingData: {}
+    trackingData: await getAllSessions()
   });
-});
+}));
 
 /**
  * GDPR compliance endpoint - data deletion
@@ -375,6 +503,14 @@ app.delete('/gdpr/delete/:userId', (req, res) => {
     userId,
     deletionDate: new Date().toISOString(),
     message: 'All user data has been deleted'
+  });
+});
+
+app.use((error, req, res, next) => {
+  console.error('Server error:', error);
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error'
   });
 });
 
