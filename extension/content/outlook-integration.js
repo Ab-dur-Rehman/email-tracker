@@ -77,7 +77,7 @@ function handleMessages(message, sender, sendResponse) {
         activeComposeCount: activeComposeElements.size
       }
     });
-    return true;
+    return false;
   }
   return false;
 }

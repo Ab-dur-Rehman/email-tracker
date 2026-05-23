@@ -376,7 +376,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: 'Unknown message type' });
   }
   
-  return true; // Keep the message channel open for async response
+  return false;
 });
 
 // Initialize when the service worker starts
