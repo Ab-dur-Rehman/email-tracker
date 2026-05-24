@@ -18,7 +18,7 @@ This guide will help you connect your local Email Tracker repository to GitHub a
 4. Add a description (optional)
 5. Choose whether to make it public or private
 6. Do NOT initialize with a README, .gitignore, or license as we already have these files
-7. Click 'Create repository'
+7. Click 'Create repository'.
 
 ### 2. Connect Your Local Repository to GitHub
 
