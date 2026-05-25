@@ -20,6 +20,7 @@ const clearDataBtn = document.getElementById('clear-data-btn');
 const viewDashboardBtn = document.getElementById('view-dashboard-btn');
 const connectGmailBtn = document.getElementById('connect-gmail-btn');
 const addCurrentGmailBtn = document.getElementById('add-current-gmail-btn');
+const scanGmailTabsBtn = document.getElementById('scan-gmail-tabs-btn');
 const gmailAccountList = document.getElementById('gmail-account-list');
 const gmailEmptyState = document.getElementById('gmail-empty-state');
 
@@ -76,13 +77,13 @@ function updateGmailAccounts() {
 
   if (gmailAccounts.length === 0) {
     gmailEmptyState.style.display = 'block';
-    connectGmailBtn.textContent = 'Connect';
+    connectGmailBtn.textContent = 'Connect Google Account';
     addCurrentGmailBtn.style.display = 'inline-block';
     return;
   }
 
   gmailEmptyState.style.display = 'none';
-  connectGmailBtn.textContent = 'Add';
+  connectGmailBtn.textContent = 'Connect Another Google Account';
   addCurrentGmailBtn.style.display = 'inline-block';
 
   gmailAccounts.forEach(account => {
@@ -103,7 +104,11 @@ function updateGmailAccounts() {
 
     const email = document.createElement('div');
     email.className = 'account-email';
-    email.textContent = account.email;
+    email.textContent = account.email || account.id || 'Detected Gmail tab';
+
+    const source = document.createElement('div');
+    source.className = 'account-source';
+    source.textContent = formatAccountSource(account.source);
 
     const disconnect = document.createElement('button');
     disconnect.className = 'btn compact secondary';
@@ -112,6 +117,7 @@ function updateGmailAccounts() {
 
     details.appendChild(name);
     details.appendChild(email);
+    details.appendChild(source);
     item.appendChild(avatar);
     item.appendChild(details);
     item.appendChild(disconnect);
@@ -465,6 +471,7 @@ function setupEventListeners() {
   });
 
   addCurrentGmailBtn.addEventListener('click', addCurrentGmailTab);
+  scanGmailTabsBtn.addEventListener('click', scanOpenGmailTabs);
   
   // Clear data button
   clearDataBtn.addEventListener('click', async () => {
@@ -532,6 +539,68 @@ async function addCurrentGmailTab() {
   } finally {
     addCurrentGmailBtn.disabled = false;
     addCurrentGmailBtn.textContent = 'Add Tab';
+  }
+}
+
+async function scanOpenGmailTabs() {
+  scanGmailTabsBtn.disabled = true;
+  scanGmailTabsBtn.textContent = 'Scanning...';
+
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://mail.google.com/*' });
+    if (tabs.length === 0) {
+      alert('No Gmail tabs are open. Open each Gmail account you want to track, then scan again.');
+      return;
+    }
+
+    let addedCount = 0;
+    for (const tab of tabs) {
+      const account = await getAccountFromGmailTab(tab.id);
+      if (!account) continue;
+
+      const response = await registerGmailAccount(account);
+      if (response && response.success) {
+        addedCount++;
+      }
+    }
+
+    await loadGmailAccounts();
+    updateGmailAccounts();
+    alert(`Added or refreshed ${addedCount} Gmail account tab${addedCount === 1 ? '' : 's'}.`);
+  } finally {
+    scanGmailTabsBtn.disabled = false;
+    scanGmailTabsBtn.textContent = 'Scan Open Gmail Tabs';
+  }
+}
+
+function getAccountFromGmailTab(tabId) {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { type: 'GET_GMAIL_PAGE_ACCOUNT' }, (response) => {
+      if (chrome.runtime.lastError || !response || !response.success) {
+        resolve(null);
+        return;
+      }
+      resolve(response.account);
+    });
+  });
+}
+
+function registerGmailAccount(account) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'REGISTER_GMAIL_ACCOUNT', account }, (response) => {
+      resolve(response);
+    });
+  });
+}
+
+function formatAccountSource(source) {
+  switch (source) {
+    case 'chrome_identity':
+      return 'Connected with Google OAuth';
+    case 'gmail_page':
+      return 'Detected from open Gmail tab';
+    default:
+      return 'Gmail account';
   }
 }
 

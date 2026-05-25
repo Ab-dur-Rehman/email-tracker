@@ -16,6 +16,23 @@ The Email Tracker extension automatically integrates with Gmail. Here's how to u
 
 > Developer note: before Gmail connection works, replace the placeholder `oauth2.client_id` in `extension/manifest.json` with a Google Cloud OAuth client ID for this Chrome extension.
 
+### Multiple Gmail Accounts
+
+Open every Gmail account you want to track in Chrome first, for example:
+
+```text
+https://mail.google.com/mail/u/0
+https://mail.google.com/mail/u/1
+```
+
+Then open the extension popup and use:
+
+- **Connect Google Account**: connects the current Chrome/Google identity account through OAuth.
+- **Add Current Gmail Tab**: adds the currently active Gmail tab.
+- **Scan Open Gmail Tabs**: finds and adds all open Gmail tabs.
+
+After adding accounts, reload Gmail tabs once so the content script can attach to each account's compose window.
+
 ### Composing Tracked Emails
 
 1. **Compose a New Email**: Click on the "Compose" button in Gmail.
