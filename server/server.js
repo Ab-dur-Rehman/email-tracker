@@ -15,10 +15,12 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const geoip = require('geoip-lite');
 const UAParser = require('ua-parser-js');
+const path = require('path');
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || '';
 
 const usePostgres = Boolean(process.env.DATABASE_URL);
 let pool = null;
@@ -38,10 +40,32 @@ app.use(helmet()); // Security headers
 app.use(cors()); // Enable CORS for extension requests
 app.use(express.json()); // Parse JSON request bodies
 app.use(morgan('combined')); // Request logging
+app.use('/dashboard-assets', express.static(path.join(__dirname, 'public')));
 
 const asyncHandler = handler => (req, res, next) => {
   Promise.resolve(handler(req, res, next)).catch(next);
 };
+
+function requireDashboardAccess(req, res, next) {
+  if (!DASHBOARD_TOKEN) {
+    next();
+    return;
+  }
+
+  const authHeader = req.headers.authorization || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const token = bearerToken || req.query.token;
+
+  if (token === DASHBOARD_TOKEN) {
+    next();
+    return;
+  }
+
+  res.status(401).json({
+    success: false,
+    error: 'Unauthorized'
+  });
+}
 
 // Rate limiting for pixel and link endpoints
 const trackingLimiter = rateLimit({
@@ -444,10 +468,24 @@ app.post('/sync', express.json(), asyncHandler(async (req, res) => {
   });
 }));
 
+app.get('/dashboard', requireDashboardAccess, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/api/sessions', requireDashboardAccess, asyncHandler(async (req, res) => {
+  const sessions = await getAllSessions();
+  res.json({
+    success: true,
+    storage: usePostgres ? 'postgres' : 'memory',
+    sessions,
+    generatedAt: new Date().toISOString()
+  });
+}));
+
 /**
  * Clear tracking data endpoint (for testing/development)
  */
-app.post('/clear', asyncHandler(async (req, res) => {
+app.post('/clear', requireDashboardAccess, asyncHandler(async (req, res) => {
   await clearAllSessions();
   res.json({ success: true, message: 'All tracking data cleared' });
 }));

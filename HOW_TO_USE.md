@@ -53,6 +53,23 @@ After adding accounts, reload Gmail tabs once so the content script can attach t
 
 3. **Email Details**: In the dashboard, click on any email to see detailed information about opens and link clicks.
 
+### Live Mobile Dashboard
+
+The backend also serves a mobile-friendly web dashboard so you can check tracking status from your phone. After deploying the backend, open:
+
+```text
+https://email-tracker-virid.vercel.app/dashboard?token=YOUR_DASHBOARD_TOKEN
+```
+
+Set `DASHBOARD_TOKEN` in Vercel first so the dashboard is not public. The dashboard reads the same Postgres/Supabase data used by the extension, so sent emails and open/click events appear there after the extension syncs them to the backend.
+
+To use it on mobile:
+
+1. Set `DASHBOARD_TOKEN` in Vercel project settings.
+2. Redeploy the Vercel project.
+3. Open the dashboard URL on your phone.
+4. Bookmark it or add it to your phone home screen.
+
 ### Troubleshooting
 
 If tracking doesn't seem to be working:
@@ -104,6 +121,7 @@ The backend now supports Postgres persistence through `DATABASE_URL`.
 
 ```text
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
+DASHBOARD_TOKEN=replace-with-a-long-random-secret
 ```
 
 4. Redeploy the backend.

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Tracker Live Dashboard</title>
+  <link rel="stylesheet" href="/dashboard-assets/dashboard.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Live Dashboard</h1>
+        <p id="last-updated">Loading tracking data...</p>
+      </div>
+      <button id="refresh-btn" type="button">Refresh</button>
+    </header>
+
+    <section class="stats-grid" aria-label="Tracking summary">
+      <article class="stat">
+        <span class="stat-value" id="sent-count">0</span>
+        <span class="stat-label">Sent</span>
+      </article>
+      <article class="stat">
+        <span class="stat-value" id="image-load-count">0</span>
+        <span class="stat-label">Image Loads</span>
+      </article>
+      <article class="stat">
+        <span class="stat-value" id="engaged-count">0</span>
+        <span class="stat-label">Engaged</span>
+      </article>
+      <article class="stat">
+        <span class="stat-value" id="rate-count">0%</span>
+        <span class="stat-label">Signal Rate</span>
+      </article>
+    </section>
+
+    <section class="filters" aria-label="Filters">
+      <input id="search-input" type="search" placeholder="Search subject or recipient">
+      <select id="status-filter">
+        <option value="all">All statuses</option>
+        <option value="sent">Sent</option>
+        <option value="image_loaded">Image loaded</option>
+        <option value="likely_opened">Likely opened</option>
+        <option value="likely_human_engaged">Likely human engaged</option>
+        <option value="possible_bot_proxy">Possible bot/proxy</option>
+      </select>
+    </section>
+
+    <section class="session-list" id="session-list" aria-live="polite"></section>
+  </main>
+
+  <script src="/dashboard-assets/dashboard.js"></script>
+</body>
+</html>
