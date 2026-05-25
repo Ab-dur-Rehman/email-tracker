@@ -103,6 +103,8 @@ Key settings include:
 
 Email open tracking is based on a remote image loading. It can be blocked by mail clients, inflated by security scanners, or proxied by providers like Gmail and Apple Mail. Treat opens as a signal, not a guaranteed human read receipt.
 
+Gmail may load the tracking image once from your own browser immediately after send because the image exists in the sent-message preview. The dashboards separate this from recipient activity by counting only **Likely Opens** and ignoring immediate sender/proxy loads in the main counters.
+
 The tracking backend must be deployed on a public HTTPS URL because recipients load the tracking image from outside your browser. The extension currently points to:
 
 ```text

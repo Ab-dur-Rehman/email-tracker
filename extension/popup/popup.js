@@ -178,7 +178,7 @@ function calculateStatistics() {
   Object.values(trackingData).forEach(session => {
     stats.sent++;
     
-    if (session.pixelLoads && session.pixelLoads.length > 0) {
+    if (getLikelyOpenLoads(session).length > 0) {
       stats.opened++;
     }
     
@@ -234,8 +234,9 @@ function getRecentActivities() {
     });
     
     // Add open activities
-    if (session.pixelLoads && session.pixelLoads.length > 0) {
-      session.pixelLoads.forEach(load => {
+    const likelyOpenLoads = getLikelyOpenLoads(session);
+    if (likelyOpenLoads.length > 0) {
+      likelyOpenLoads.forEach(load => {
         activities.push({
           type: 'opened',
           emailSubject: session.emailSubject,
@@ -364,7 +365,7 @@ function getSessionConfidence(session) {
     };
   }
 
-  if (session.pixelLoads && session.pixelLoads.length > 0) {
+  if (getLikelyOpenLoads(session).length > 0) {
     return {
       score: 45,
       label: 'Image loaded',
@@ -377,6 +378,26 @@ function getSessionConfidence(session) {
     label: 'Sent',
     status: 'sent'
   };
+}
+
+function isLikelyRecipientOpen(load, session) {
+  const confidence = load.confidence || {};
+  const score = typeof confidence.score === 'number' ? confidence.score : null;
+  const millisecondsAfterSend = load.timestamp && session.sentTimestamp ? load.timestamp - session.sentTimestamp : null;
+
+  if (confidence.status === 'possible_bot_proxy' || (score !== null && score < 30)) {
+    return false;
+  }
+
+  if (millisecondsAfterSend !== null && millisecondsAfterSend < 10000) {
+    return false;
+  }
+
+  return true;
+}
+
+function getLikelyOpenLoads(session) {
+  return (session.pixelLoads || []).filter(load => isLikelyRecipientOpen(load, session));
 }
 
 function formatConfidence(confidence) {

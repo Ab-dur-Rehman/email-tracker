@@ -177,7 +177,7 @@ function calculateStatistics(data) {
   
   // Count emails by status
   data.forEach(session => {
-    if (session.pixelLoads && session.pixelLoads.length > 0) {
+    if (getLikelyOpenLoads(session).length > 0) {
       stats.opened++;
     }
     
@@ -227,8 +227,9 @@ function updateActivityChart() {
       sentData[sentIndex]++;
       
       // Check for opens on this date
-      if (session.pixelLoads) {
-        session.pixelLoads.forEach(load => {
+      const likelyOpenLoads = getLikelyOpenLoads(session);
+      if (likelyOpenLoads.length > 0) {
+        likelyOpenLoads.forEach(load => {
           const openDate = new Date(load.timestamp);
           const openIndex = dates.findIndex(date => 
             date.getDate() === openDate.getDate() && 
@@ -347,8 +348,9 @@ function updateGeoChart() {
   const locationCounts = {};
   
   filteredData.forEach(session => {
-    if (session.pixelLoads) {
-      session.pixelLoads.forEach(load => {
+    const likelyOpenLoads = getLikelyOpenLoads(session);
+    if (likelyOpenLoads.length > 0) {
+      likelyOpenLoads.forEach(load => {
         if (load.geolocation && load.geolocation.country) {
           const country = load.geolocation.country;
           locationCounts[country] = (locationCounts[country] || 0) + 1;
@@ -435,7 +437,7 @@ function updateDeviceChart() {
   
   filteredData.forEach(session => {
     const events = [
-      ...(session.pixelLoads || []),
+      ...getLikelyOpenLoads(session),
       ...(session.linkClicks || [])
     ];
     
@@ -566,7 +568,7 @@ function createTableRow(session) {
     <td>${formatRecipients(session.recipients)}</td>
     <td>${formattedDate}</td>
     <td><span class="status-badge status-${confidence.status}">${confidence.label}</span></td>
-    <td>${session.pixelLoads ? session.pixelLoads.length : 0}</td>
+    <td>${getLikelyOpenLoads(session).length}</td>
     <td>${session.linkClicks ? session.linkClicks.length : 0}</td>
     <td>${confidence.score}/100</td>
     <td>
@@ -606,7 +608,7 @@ function showEmailDetails(session) {
   // Set overview information
   document.getElementById('modal-sent-date').textContent = new Date(session.sentTimestamp).toLocaleString();
   document.getElementById('modal-recipients').textContent = formatRecipients(session.recipients);
-  document.getElementById('modal-open-count').textContent = session.pixelLoads ? session.pixelLoads.length : 0;
+  document.getElementById('modal-open-count').textContent = getLikelyOpenLoads(session).length;
   document.getElementById('modal-click-count').textContent = session.linkClicks ? session.linkClicks.length : 0;
   
   // Populate opens table
@@ -688,7 +690,7 @@ function getSessionConfidence(session) {
     };
   }
 
-  if (session.pixelLoads && session.pixelLoads.length > 0) {
+  if (getLikelyOpenLoads(session).length > 0) {
     return {
       score: 45,
       label: 'Image loaded',
@@ -701,6 +703,26 @@ function getSessionConfidence(session) {
     label: 'Sent',
     status: 'sent'
   };
+}
+
+function isLikelyRecipientOpen(load, session) {
+  const confidence = load.confidence || {};
+  const score = typeof confidence.score === 'number' ? confidence.score : null;
+  const millisecondsAfterSend = load.timestamp && session.sentTimestamp ? load.timestamp - session.sentTimestamp : null;
+
+  if (confidence.status === 'possible_bot_proxy' || (score !== null && score < 30)) {
+    return false;
+  }
+
+  if (millisecondsAfterSend !== null && millisecondsAfterSend < 10000) {
+    return false;
+  }
+
+  return true;
+}
+
+function getLikelyOpenLoads(session) {
+  return (session.pixelLoads || []).filter(load => isLikelyRecipientOpen(load, session));
 }
 
 function formatConfidence(confidence) {

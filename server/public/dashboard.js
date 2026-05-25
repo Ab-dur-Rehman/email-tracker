@@ -40,15 +40,35 @@ function getConfidence(session) {
   if ((session.linkClicks || []).length > 0) {
     return { score: 75, label: 'Likely human engaged', status: 'likely_human_engaged' };
   }
-  if ((session.pixelLoads || []).length > 0) {
+  if (getLikelyOpenLoads(session).length > 0) {
     return { score: 45, label: 'Image loaded', status: 'image_loaded' };
   }
   return { score: 0, label: 'Sent', status: 'sent' };
 }
 
+function isLikelyRecipientOpen(load, session) {
+  const confidence = load.confidence || {};
+  const score = typeof confidence.score === 'number' ? confidence.score : null;
+  const millisecondsAfterSend = load.timestamp && session.sentTimestamp ? load.timestamp - session.sentTimestamp : null;
+
+  if (confidence.status === 'possible_bot_proxy' || (score !== null && score < 30)) {
+    return false;
+  }
+
+  if (millisecondsAfterSend !== null && millisecondsAfterSend < 10000) {
+    return false;
+  }
+
+  return true;
+}
+
+function getLikelyOpenLoads(session) {
+  return (session.pixelLoads || []).filter(load => isLikelyRecipientOpen(load, session));
+}
+
 function renderStats(filteredSessions) {
   const sent = filteredSessions.length;
-  const imageLoads = filteredSessions.filter(session => (session.pixelLoads || []).length > 0).length;
+  const imageLoads = filteredSessions.filter(session => getLikelyOpenLoads(session).length > 0).length;
   const engaged = filteredSessions.filter(session => getConfidence(session).status === 'likely_human_engaged').length;
 
   sentCount.textContent = sent;
@@ -93,7 +113,8 @@ function renderSessions() {
 
   sessionList.innerHTML = filteredSessions.map(session => {
     const confidence = getConfidence(session);
-    const opens = (session.pixelLoads || []).length;
+    const opens = getLikelyOpenLoads(session).length;
+    const ignoredLoads = (session.pixelLoads || []).length - opens;
     const clicks = (session.linkClicks || []).length;
 
     return `
@@ -107,7 +128,7 @@ function renderSessions() {
         </div>
         <div class="details">
           Sent: ${escapeHtml(formatTime(session.sentTimestamp))}<br>
-          Image loads: ${opens} | Clicks: ${clicks} | Confidence: ${confidence.score}/100
+          Likely opens: ${opens} | Ignored sender/proxy loads: ${ignoredLoads} | Clicks: ${clicks} | Confidence: ${confidence.score}/100
         </div>
       </article>
     `;
